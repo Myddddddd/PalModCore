@@ -361,6 +361,12 @@ public class FilledPalSphereItem extends Item {
                     }
                     pLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.POOF, mob.getX(), mob.getY() + 1, mob.getZ(), 10, 0.5, 0.5, 0.5, 0.1);
                     pLevel.playSound(null, mob.getX(), mob.getY(), mob.getZ(), net.minecraft.sounds.SoundEvents.ENDERMAN_TELEPORT, net.minecraft.sounds.SoundSource.NEUTRAL, 1.0F, 1.0F);
+                    if (mob instanceof net.minecraft.world.entity.LivingEntity livingMob
+                            && livingMob.getPersistentData().hasUUID("PalOwner")) {
+                        net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(
+                                new com.mx.palmod.api.event.PalRecalledEvent(
+                                        livingMob, livingMob.getPersistentData().getUUID("PalOwner")));
+                    }
                     mob.discard();
                 } else if (!tag.getString("DeployMode").isEmpty()) {
                     // Deployed pal in an UNLOADED chunk (the waystone's core use

@@ -252,7 +252,12 @@ public class PalSphereProjectile extends ThrowableItemProjectile {
         float rate = effectiveLevel - maxHealth + 0.7f * healthLostPct;
         float catchChance = Math.max(0f, Math.min(100f, rate)) / 100f;
 
-        if (this.random.nextFloat() <= catchChance) {
+        boolean catchRolled = this.random.nextFloat() <= catchChance;
+        boolean catchVetoed = catchRolled && getOwner() instanceof Player catcher
+                && net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(
+                        new com.mx.palmod.api.event.PalCaughtEvent(target, catcher.getUUID(), getItem(), effectiveLevel));
+
+        if (catchRolled && !catchVetoed) {
             // ── Success ──
             CompoundTag entityData = new CompoundTag();
             if (target.saveAsPassenger(entityData)) {
@@ -400,10 +405,17 @@ public class PalSphereProjectile extends ThrowableItemProjectile {
                 EntityType<?> entityType = optionalType.get();
                 com.mx.palmod.behavior.PalBehavior summonBehavior =
                         com.mx.palmod.behavior.PalBehaviorManager.getBehavior(entityType);
-                // Warp beacon: a plain summon roots the pal as a waystone (recall
-                // warps the owner back to it) — reuse the anchor deploy machinery.
-                if (deployMode.isEmpty() && summonBehavior.isWarpBeacon()) {
-                    deployMode = "anchor";
+                // A registered power (warp_beacon built in) may root a plain summon
+                // into a deploy mode of its own (e.g. anchored as a waystone).
+                if (deployMode.isEmpty()) {
+                    for (com.mx.palmod.pal.PalAbilityRegistry.PalAbility ability
+                            : com.mx.palmod.pal.PalAbilityRegistry.applicable(summonBehavior)) {
+                        java.util.Optional<String> forced = ability.forcedDeployMode(summonBehavior);
+                        if (forced.isPresent()) {
+                            deployMode = forced.get();
+                            break;
+                        }
+                    }
                 }
                 net.minecraft.world.entity.Entity entity = entityType.create(serverLevel);
                 if (entity instanceof LivingEntity livingEntity) {
@@ -452,22 +464,25 @@ public class PalSphereProjectile extends ThrowableItemProjectile {
                     tag.putBoolean("IsReleased", true);
                     tag.putUUID("EntityUUID", livingEntity.getUUID());
 
-                    // Warp beacon: mark the sphere so a deliberate recall warps
-                    // the owner to it (anchor deploy already implies this, but be
-                    // explicit for the warp_beacon flag path).
-                    if (summonBehavior.isWarpBeacon()) {
-                        tag.putBoolean("WarpOnRecall", true);
-                    }
-                    // ZA WARUDO on summon: freeze around where the pal just landed.
-                    if (summonBehavior.isTimeStopOnSummon()
-                            && livingEntity instanceof net.minecraft.world.entity.Mob tsPal
-                            && player instanceof net.minecraft.server.level.ServerPlayer tsCaster) {
-                        com.mx.palmod.timestop.TimeStopManager.tryActivateOnSummon(
-                                tsCaster, serverLevel, tsPal, tag, summonBehavior);
+                    // Summon-time powers (warp_beacon, time_stop.on_summon, and
+                    // anything a third-party mod registers) react to the fresh summon
+                    if (livingEntity instanceof net.minecraft.world.entity.Mob summonedPal
+                            && player instanceof net.minecraft.server.level.ServerPlayer serverOwner) {
+                        for (com.mx.palmod.pal.PalAbilityRegistry.PalAbility ability
+                                : com.mx.palmod.pal.PalAbilityRegistry.applicable(summonBehavior)) {
+                            ability.onSummon(summonedPal, summonBehavior, serverOwner, serverLevel, tag);
+                        }
                     }
 
                     serverLevel.sendParticles(ParticleTypes.POOF, location.x, location.y + 1, location.z, 15, 0.5, 0.5, 0.5, 0.1);
                     serverLevel.playSound(null, location.x, location.y, location.z, SoundEvents.ENDERMAN_TELEPORT, SoundSource.NEUTRAL, 1.0F, 1.0F);
+
+                    net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(
+                            new com.mx.palmod.api.event.PalSummonedEvent(livingEntity, player.getUUID()));
+                    if (!deployMode.isEmpty()) {
+                        net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(
+                                new com.mx.palmod.api.event.PalDeployedEvent(livingEntity, player.getUUID(), deployMode));
+                    }
                 }
             }
         }

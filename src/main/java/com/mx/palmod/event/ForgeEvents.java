@@ -193,18 +193,11 @@ public class ForgeEvents {
                     mob.goalSelector.addGoal(2, new com.mx.palmod.ai.PalCastAttackGoal(mob, behavior));
                 }
 
-                // Clone/swarm: split into temporary copies when it has a target
-                if (behavior.getCloneMax() > 0) {
-                    mob.goalSelector.addGoal(2, new com.mx.palmod.ai.PalCloneGoal(mob, behavior));
-                }
-
-                // Magnet delivery run: carry the hoard to a chest / storage pal
-                if (behavior.getMagnetRadius() > 0) {
-                    mob.goalSelector.addGoal(2, new com.mx.palmod.ai.PalMagnetDepositGoal(mob, behavior));
-                }
-
-                if (behavior.isCanFetch()) {
-                    mob.goalSelector.addGoal(1, new com.mx.palmod.ai.FetchGoal(mob, behavior.getFetchRadius()));
+                // Proactive special powers (clone, fetch, magnet, and anything a
+                // third-party mod registers) inject their own goals here
+                for (com.mx.palmod.pal.PalAbilityRegistry.PalAbility ability
+                        : com.mx.palmod.pal.PalAbilityRegistry.applicable(behavior)) {
+                    ability.onJoin(mob, behavior);
                 }
             }
         }
@@ -620,6 +613,11 @@ public class ForgeEvents {
                     entity.level().getGameTime());
         }
         if (!entity.level().isClientSide() && entity.getPersistentData().contains("SphereUUID")) {
+            if (entity.getPersistentData().hasUUID("PalOwner")) {
+                net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(
+                        new com.mx.palmod.api.event.PalDiedEvent(
+                                entity, entity.getPersistentData().getUUID("PalOwner")));
+            }
             boolean isStationPal = entity.getPersistentData().contains("WorkStationPos");
             if (isStationPal) {
                 // Confirmed death: break the station right away with an EMPTY

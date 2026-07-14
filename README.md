@@ -436,9 +436,51 @@ WildDefenseRegistry.register("smoke_bomb", new WildDefenseRegistry.WildDefense()
 Reference `data/<ns>/pal_behaviors/*.json` with `"wild": {"category": "op", "type": "smoke_bomb", ...}`
 and it's live — no Palmod source touched.
 
-Everything else — goal injection, interact routing, hunger/mood ticking — is centralized in
-`ForgeEvents` and reads straight from the same behavior JSON your datapack provides, so a new
-mob with a correct `pal_behaviors` entry needs **zero** Java to work at all.
+**New proactive pal power** (the "one special power per mob" system — clone, magnet, XP
+collector, greedy boom, warp beacon, time-stop-on-summon, and anything you add) — implement
+whichever hooks of `PalAbilityRegistry.PalAbility` you need: `onJoin` to inject an AI goal,
+`tick` for a passive ~20-tick hook, `onSummon` to react once right after a fresh summon, or
+`forcedDeployMode` if the power should root the pal into a deploy mode on a plain summon:
+
+```java
+PalAbilityRegistry.register(new PalAbilityRegistry.PalAbility() {
+    @Override
+    public boolean appliesTo(PalBehavior behavior) {
+        return behavior.getExtraFieldYouAdded() > 0; // gate on your own behavior field
+    }
+
+    @Override
+    public void tick(Mob mob, PalBehavior behavior, ServerLevel level) {
+        // runs every ~20 ticks while this pal is owned and alive
+    }
+});
+```
+
+**Reacting to a pal's lifecycle** — subscribe to the events in `com.mx.palmod.api.event` on the
+Forge event bus like any other Forge event, no registry needed:
+
+| Event | Fires when | Cancelable |
+|---|---|---|
+| `PalCaughtEvent` | A wild-catch roll succeeds, before the mob is removed | Yes — canceling treats it as a failed catch |
+| `PalSummonedEvent` | A filled sphere finishes placing a pal in the world | No |
+| `PalRecalledEvent` | A released pal is recalled into its sphere (deliberate or automatic) | No |
+| `PalDiedEvent` | An owned pal dies, right before its sphere reverts to empty | No |
+| `PalDeployedEvent` | A pal roots into a deploy mode (anchor/sentry) on summon | No |
+
+```java
+@SubscribeEvent
+public static void onCatch(PalCaughtEvent event) {
+    if (event.getPal().getType() == EntityType.WITHER) {
+        event.setCanceled(true); // no catching the Wither, thanks
+    }
+}
+```
+
+Everything else — the sneak/plain click-priority table, deploy mode (anchor/sentry) selection,
+and hunger/mood ticking — is still centralized directly in `ForgeEvents` rather than a registry;
+those are dense, stable UX logic where the regression risk of adding indirection outweighed the
+addon payoff. A new mob with a correct `pal_behaviors` entry still needs **zero** Java to work
+at all — every extension point above is purely additive for mods that want more.
 
 One honest limitation: there's currently no separate published API artifact (see
 [`build.gradle`](build.gradle)'s `maven-publish` block, which just ships the whole jar) — an
