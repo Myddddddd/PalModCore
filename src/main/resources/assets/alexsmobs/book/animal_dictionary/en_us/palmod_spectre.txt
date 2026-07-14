@@ -1,0 +1,10 @@
+<NEWLINE>
+<NEWLINE>
+<NEWLINE>
+PAL STATS - Health: 50 | Attack: 2
+<NEWLINE>
+PAL ABILITY - Warp Beacon. Summon it and it roots where it lands, like a waystone. Recall it from anywhere and you teleport to its spot - a portable home point you set down and snap back to.
+<NEWLINE>
+WILD VARIANT - Blinker. It teleports away from ordinary spheres. Only a WarpTether-enchanted sphere can pin it down.
+<NEWLINE>
+CATCHING - Catch rate scales with sphere tier and the Leveling enchant, and rises steeply as the target is weakened. Only mobs with an enchanted shimmer can be caught - a Pal Compass points to the nearest one.

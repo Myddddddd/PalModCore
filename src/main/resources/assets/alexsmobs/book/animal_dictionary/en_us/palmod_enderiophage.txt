@@ -1,0 +1,10 @@
+<NEWLINE>
+<NEWLINE>
+<NEWLINE>
+PAL STATS - Health: 20 | Attack: 2
+<NEWLINE>
+PAL ABILITY - Time Stop (ZA WARUDO). The instant you summon it, time freezes around where it lands - enemies, arrows and TNT all hang still while you strike freely. You choose the moment and the spot by when and where you throw the sphere. Long cooldown.
+<NEWLINE>
+WILD VARIANT - Time stopper. It freezes incoming spheres mid-flight, drops them, and blinks away. Reverse-portal motes mean its time stop is ready - bait it out, then throw again while it recharges.
+<NEWLINE>
+CATCHING - Catch rate scales with sphere tier and the Leveling enchant, and rises steeply as the target is weakened. Only mobs with an enchanted shimmer can be caught - a Pal Compass points to the nearest one.

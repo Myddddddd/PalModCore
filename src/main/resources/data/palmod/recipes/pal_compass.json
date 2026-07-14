@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " s ",
+    "sCs",
+    " s "
+  ],
+  "key": {
+    "s": { "item": "palmod:pal_sphere" },
+    "C": { "item": "minecraft:compass" }
+  },
+  "result": {
+    "item": "minecraft:compass",
+    "count": 1,
+    "nbt": "{PalCompass:1b,LodestoneTracked:0b,LodestoneDimension:\"palmod:nowhere\",display:{Name:'{\"text\":\"Pal Compass\",\"color\":\"aqua\",\"italic\":false}'}}"
+  }
+}

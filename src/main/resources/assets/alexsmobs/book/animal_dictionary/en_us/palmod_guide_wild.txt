@@ -1,0 +1,11 @@
+<NEWLINE>
+<NEWLINE>
+In the wild, tougher creatures fight back. They come in four types:
+<NEWLINE>
+Brawler - tanky and hits hard.
+<NEWLINE>
+Skittish - flees the moment it sees or hears you; sneak to get close.
+<NEWLINE>
+OP - freezes or dodges your spheres.
+<NEWLINE>
+Predator-locked - beaten only with the right counter Pal, or by luring it out of hiding.

@@ -1,0 +1,28 @@
+{
+  "entity": "alexscaves:rocky_roller",
+  "behaviors": {
+    "follow_owner": false,
+    "protect_owner": false,
+    "attack_target": false,
+    "station_mode": {
+      "enabled": true,
+      "worker_type": "miner",
+      "harvest_radius": 8,
+      "wander_radius": 24,
+      "ore_tag": "forge:ores"
+    }
+  },
+  "stats": {
+    "hunger_decay_per_minute": 4.0,
+    "mood_decay_per_day": 2.0
+  },
+  "hunger_costs": {
+    "mine": 3.0,
+    "move_per_block": 0.03
+  },
+  "wild": {
+    "category": "brawler",
+    "health_multiplier": 1.5,
+    "resistance": 1
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "entity": "minecraft:zombie",
+  "default_hunger_restore": 2.0,
+  "default_mood_bonus": 0.0,
+  "foods": [
+    { "item": "minecraft:rotten_flesh", "hunger_restore": 10.0, "mood_bonus": 5.0 },
+    { "item": "minecraft:beef", "hunger_restore": 18.0, "mood_bonus": 8.0 },
+    { "item": "minecraft:cooked_beef", "hunger_restore": 25.0, "mood_bonus": 12.0 },
+    { "item": "minecraft:porkchop", "hunger_restore": 15.0, "mood_bonus": 6.0 },
+    { "item": "minecraft:mutton", "hunger_restore": 14.0, "mood_bonus": 5.0 }
+  ]
+}

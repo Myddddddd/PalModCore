@@ -1,0 +1,22 @@
+{
+  "parent": "root.json",
+  "text": "palmod_paldex.txt",
+  "title": "palmod.book.paldex",
+  "linked_page_buttons": [
+    { "linked_page": "palmod_guide_spheres.json",      "text": "palmod.book.guide.spheres",      "x": 96,  "y": 34,  "page": 0, "item": "palmod:pal_sphere" },
+    { "linked_page": "palmod_guide_catching.json",     "text": "palmod.book.guide.catching",     "x": 96,  "y": 58,  "page": 0, "item": "palmod:pal_sphere_advanced" },
+    { "linked_page": "palmod_guide_enchantments.json", "text": "palmod.book.guide.enchantments", "x": 96,  "y": 82,  "page": 0, "item": "minecraft:enchanted_book" },
+    { "linked_page": "palmod_guide_compass.json",      "text": "palmod.book.guide.compass",      "x": 96,  "y": 106, "page": 0, "item": "minecraft:compass" },
+    { "linked_page": "palmod_guide_care.json",         "text": "palmod.book.guide.care",         "x": 96,  "y": 130, "page": 0, "item": "palmod:pal_feeder" },
+    { "linked_page": "palmod_guide_stations.json",     "text": "palmod.book.guide.stations",     "x": 289, "y": 34,  "page": 0, "item": "palmod:pal_work_station" },
+    { "linked_page": "palmod_guide_powers.json",       "text": "palmod.book.guide.powers",       "x": 289, "y": 58,  "page": 0, "item": "minecraft:ender_pearl" },
+    { "linked_page": "palmod_guide_wild.json",         "text": "palmod.book.guide.wild",         "x": 289, "y": 82,  "page": 0, "item": "minecraft:iron_sword" },
+    { "linked_page": "palmod_bestiary.json",           "text": "palmod.book.bestiary",           "x": 289, "y": 106, "page": 0, "item": "minecraft:written_book" }
+  ],
+  "entity_buttons": [],
+  "images": [],
+  "item_renders": [],
+  "recipes": [],
+  "tabula_renders": [],
+  "entity_renders": []
+}

@@ -1,0 +1,7 @@
+<NEWLINE>
+<NEWLINE>
+Some Pals can run a Work Station. Sneak and use a station-type Pal on a block to place its station - the Pal appears and starts working.
+<NEWLINE>
+Jobs include Harvester, Lumberjack, Miner, Trader and Sorter.
+<NEWLINE>
+Right-click the station to collect what the Pal produced. Break it to get the Pal's sphere back.

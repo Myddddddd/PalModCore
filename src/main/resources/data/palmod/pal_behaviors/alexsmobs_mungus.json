@@ -1,0 +1,29 @@
+{
+  "entity": "alexsmobs:mungus",
+  "behaviors": {
+    "follow_owner": {
+      "speed": 1.0,
+      "start_distance": 15.0,
+      "stop_distance": 7.5
+    },
+    "protect_owner": false,
+    "attack_target": false
+  },
+  "aura": {
+    "type": "heal",
+    "radius": 8.0,
+    "interval_ticks": 100,
+    "potency": 0,
+    "hunger_cost": 2.0
+  },
+  "stats": {
+    "hunger_decay_per_minute": 3.0,
+    "mood_decay_per_day": 2.0
+  },
+  "wild": {
+    "category": "predator_locked",
+    "type": "shy_hide",
+    "hide_range": 16.0,
+    "lure_range": 8.0
+  }
+}

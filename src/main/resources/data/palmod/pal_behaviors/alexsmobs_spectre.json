@@ -1,0 +1,17 @@
+{
+  "entity": "alexsmobs:spectre",
+  "behaviors": {
+    "follow_owner": false,
+    "protect_owner": false,
+    "attack_target": false,
+    "warp_beacon": true
+  },
+  "stats": {
+    "hunger_decay_per_minute": 1.0,
+    "mood_decay_per_day": 2.0
+  },
+  "wild": {
+    "category": "op",
+    "type": "blink"
+  }
+}

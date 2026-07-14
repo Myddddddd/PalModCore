@@ -1,0 +1,8 @@
+<NEWLINE>
+<NEWLINE>
+<NEWLINE>
+PAL STATS - Health: 16 | Attack: 1
+<NEWLINE>
+PAL ABILITY - Sentry turret. Sneak-throw its sphere to deploy it as a rooted sentry that attacks hostiles in its radius.
+<NEWLINE>
+CATCHING - Catch rate scales with sphere tier and the Leveling enchant, and rises steeply as the target is weakened. Only mobs with an enchanted shimmer can be caught - a Pal Compass points to the nearest one.

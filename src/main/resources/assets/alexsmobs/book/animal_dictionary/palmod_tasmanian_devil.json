@@ -1,0 +1,13 @@
+{
+  "parent": "tasmanian_devil.json",
+  "text": "palmod_tasmanian_devil.txt",
+  "title": "palmod.book.tasmanian_devil_pal",
+  "linked_page_buttons": [],
+  "images": [],
+  "item_renders": [
+    { "item": "palmod:filled_pal_sphere", "x": 90, "y": 14, "page": 0, "scale": 2.0 }
+  ],
+  "recipes": [],
+  "tabula_renders": [],
+  "entity_renders": []
+}

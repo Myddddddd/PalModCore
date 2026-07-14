@@ -1,0 +1,16 @@
+{
+  "entity": "alexsmobs:endergrade",
+  "behaviors": {
+    "follow_owner": { "speed": 1.0, "start_distance": 18.0, "stop_distance": 9.0 },
+    "protect_owner": false,
+    "attack_target": false,
+    "xp_collector": { "radius": 8.0, "max_stored": 1395 }
+  },
+  "stats": { "hunger_decay_per_minute": 2.0, "mood_decay_per_day": 2.0 },
+  "wild": {
+    "category": "skittish",
+    "sight_range": 24.0,
+    "hearing_range": 16.0,
+    "flee_speed": 1.3
+  }
+}

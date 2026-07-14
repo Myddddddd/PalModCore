@@ -1,0 +1,13 @@
+{
+  "parent": "capuchin_monkey.json",
+  "text": "palmod_capuchin_monkey.txt",
+  "title": "palmod.book.capuchin_monkey_pal",
+  "linked_page_buttons": [],
+  "images": [],
+  "item_renders": [
+    { "item": "palmod:filled_pal_sphere", "x": 90, "y": 14, "page": 0, "scale": 2.0 }
+  ],
+  "recipes": [],
+  "tabula_renders": [],
+  "entity_renders": []
+}

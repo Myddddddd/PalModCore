@@ -1,0 +1,10 @@
+<NEWLINE>
+<NEWLINE>
+<NEWLINE>
+PAL STATS - Health: 60 | Attack: 10
+<NEWLINE>
+PAL ABILITY - Rideable swim mount. Right-click to ride and steer with your view. Exceptionally fast in water.
+<NEWLINE>
+WILD VARIANT - Brawler. A wild catchable one has boosted health and Resistance and fights back when provoked. The catch formula charges its BASE health, so weaken it and keep throwing.
+<NEWLINE>
+CATCHING - Catch rate scales with sphere tier and the Leveling enchant, and rises steeply as the target is weakened. Only mobs with an enchanted shimmer can be caught - a Pal Compass points to the nearest one.

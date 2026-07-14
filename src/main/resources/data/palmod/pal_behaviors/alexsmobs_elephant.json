@@ -1,0 +1,16 @@
+{
+  "entity": "alexsmobs:elephant",
+  "behaviors": {
+    "follow_owner": { "speed": 1.0, "start_distance": 18.0, "stop_distance": 10.5 },
+    "protect_owner": true,
+    "attack_target": true,
+    "combat_ability": { "type": "earth_spike", "damage": 7.0, "range": 10.0, "cooldown_ticks": 80, "hunger_cost": 3.0 }
+  },
+  "stats": { "hunger_decay_per_minute": 4.0, "mood_decay_per_day": 2.0 },
+  "wild": {
+    "category": "brawler",
+    "health_multiplier": 1.5,
+    "resistance": 0,
+    "use_combat_ability": true
+  }
+}

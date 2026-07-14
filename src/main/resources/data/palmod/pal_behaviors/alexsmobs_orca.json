@@ -1,0 +1,15 @@
+{
+  "entity": "alexsmobs:orca",
+  "behaviors": {
+    "follow_owner": false,
+    "protect_owner": false,
+    "attack_target": false,
+    "rideable": { "speed": 2.2 }
+  },
+  "stats": { "hunger_decay_per_minute": 2.0, "mood_decay_per_day": 2.0 },
+  "wild": {
+    "category": "brawler",
+    "health_multiplier": 1.5,
+    "resistance": 0
+  }
+}

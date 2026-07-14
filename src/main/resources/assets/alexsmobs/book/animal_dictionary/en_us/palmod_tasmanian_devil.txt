@@ -1,0 +1,10 @@
+<NEWLINE>
+<NEWLINE>
+<NEWLINE>
+PAL STATS - Health: 14 | Attack: 2
+<NEWLINE>
+PAL ABILITY - Swarm. This frenzy-biter fights by numbers: engage a target and it splits into up to 6 fragile copies that pile on together, then vanish after a few seconds. Overwhelm, then regroup.
+<NEWLINE>
+WILD VARIANT - Ambusher. It stays hidden until one of your owned pals wanders close, then pounces the bait. Send a sturdy pal in first.
+<NEWLINE>
+CATCHING - Catch rate scales with sphere tier and the Leveling enchant, and rises steeply as the target is weakened. Only mobs with an enchanted shimmer can be caught - a Pal Compass points to the nearest one.

@@ -1,0 +1,22 @@
+{
+  "entity": "alexsmobs:kangaroo",
+  "behaviors": {
+    "follow_owner": {
+      "speed": 1.1,
+      "start_distance": 15.0,
+      "stop_distance": 7.5
+    },
+    "protect_owner": false,
+    "attack_target": false,
+    "mobile_chest_size": 27
+  },
+  "stats": {
+    "hunger_decay_per_minute": 3.0,
+    "mood_decay_per_day": 2.0
+  },
+  "wild": {
+    "category": "brawler",
+    "health_multiplier": 1.3,
+    "resistance": 0
+  }
+}

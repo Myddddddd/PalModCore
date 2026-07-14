@@ -1,0 +1,10 @@
+<NEWLINE>
+<NEWLINE>
+<NEWLINE>
+PAL STATS - Health: 20 | Attack: 2
+<NEWLINE>
+PAL ABILITY - Lightning caster. It calls thunderbolts onto your targets.
+<NEWLINE>
+WILD VARIANT - Predator-locked. It shrugs off ALL damage except a pal casting Water Burst (catch a mantis shrimp first). Weaken it that way, then throw.
+<NEWLINE>
+CATCHING - Catch rate scales with sphere tier and the Leveling enchant, and rises steeply as the target is weakened. Only mobs with an enchanted shimmer can be caught - a Pal Compass points to the nearest one.

@@ -1,0 +1,12 @@
+{
+  "entity": "alexsmobs:tasmanian_devil",
+  "default_hunger_restore": 5.0,
+  "default_mood_bonus": 1.0,
+  "foods": [
+    { "item": "minecraft:cooked_beef", "hunger_restore": 20.0, "mood_bonus": 5.0 },
+    { "item": "minecraft:cooked_porkchop", "hunger_restore": 20.0, "mood_bonus": 5.0 },
+    { "item": "minecraft:rotten_flesh", "hunger_restore": 10.0, "mood_bonus": 2.0 },
+    { "item": "minecraft:beef", "hunger_restore": 12.0, "mood_bonus": 3.0 },
+    { "item": "minecraft:porkchop", "hunger_restore": 12.0, "mood_bonus": 3.0 }
+  ]
+}

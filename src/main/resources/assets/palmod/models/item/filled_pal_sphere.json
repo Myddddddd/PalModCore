@@ -1,0 +1,8 @@
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "palmod:item/filled_pal_sphere_window",
+    "layer1": "palmod:item/sphere_egg",
+    "layer2": "palmod:item/sphere_egg_overlay"
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "variants": {
+    "": { "model": "palmod:block/pal_work_station" }
+  }
+}

@@ -1,0 +1,10 @@
+<NEWLINE>
+<NEWLINE>
+<NEWLINE>
+PAL STATS - Health: 9 | Attack: 2
+<NEWLINE>
+PAL ABILITY - Sorter. Place its Work Station among your chests. The raccoon empties the station buffer and sorts items into nearby containers that already hold the same item.
+<NEWLINE>
+WILD VARIANT - Skittish. A wild catchable one flees the moment it sees or hears you. Sneak to quarter its detection range before throwing a sphere.
+<NEWLINE>
+CATCHING - Catch rate scales with sphere tier and the Leveling enchant, and rises steeply as the target is weakened. Only mobs with an enchanted shimmer can be caught - a Pal Compass points to the nearest one.

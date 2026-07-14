@@ -1,0 +1,7 @@
+<NEWLINE>
+<NEWLINE>
+Sneak-throw a sphere for a special deploy: an Anchor that holds position, or a Sentry turret.
+<NEWLINE>
+A few Pals carry unique powers - stopping time when summoned, warping you on recall, granting heal or storm auras, casting elemental attacks, or splitting into a swarm.
+<NEWLINE>
+Check each Pal's page in the Bestiary to see what it can do.

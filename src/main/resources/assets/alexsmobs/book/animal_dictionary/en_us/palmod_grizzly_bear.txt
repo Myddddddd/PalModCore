@@ -1,0 +1,10 @@
+<NEWLINE>
+<NEWLINE>
+<NEWLINE>
+PAL STATS - Health: 55 | Attack: 8
+<NEWLINE>
+PAL ABILITY - Bodyguard. Guard-only: it never picks fights, but anything that hurts you near it gets mauled until the attacker leaves its guard radius.
+<NEWLINE>
+WILD VARIANT - Brawler. A wild catchable one has boosted health and Resistance and fights back when provoked. The catch formula charges its BASE health, so weaken it and keep throwing.
+<NEWLINE>
+CATCHING - Catch rate scales with sphere tier and the Leveling enchant, and rises steeply as the target is weakened. Only mobs with an enchanted shimmer can be caught - a Pal Compass points to the nearest one.

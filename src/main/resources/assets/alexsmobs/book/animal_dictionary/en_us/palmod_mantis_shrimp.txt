@@ -1,0 +1,10 @@
+<NEWLINE>
+<NEWLINE>
+<NEWLINE>
+PAL STATS - Health: 20 | Attack: 3
+<NEWLINE>
+PAL ABILITY - Water Burst caster. Its pressurized water burst is the one attack that pierces the sunbird's immunity.
+<NEWLINE>
+WILD VARIANT - Brawler. A wild catchable one has boosted health and Resistance and fights back when provoked. The catch formula charges its BASE health, so weaken it and keep throwing. It also snipes players with water bursts.
+<NEWLINE>
+CATCHING - Catch rate scales with sphere tier and the Leveling enchant, and rises steeply as the target is weakened. Only mobs with an enchanted shimmer can be caught - a Pal Compass points to the nearest one.

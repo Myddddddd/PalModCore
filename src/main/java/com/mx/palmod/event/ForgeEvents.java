@@ -1,0 +1,658 @@
+package com.mx.palmod.event;
+
+import com.mx.palmod.Palmod;
+import com.mx.palmod.ai.PalAttackOwnerTargetGoal;
+import com.mx.palmod.ai.PalFollowOwnerGoal;
+import com.mx.palmod.ai.PalSeekFeederGoal;
+import com.mx.palmod.ai.PalTargetOwnerAttackerGoal;
+import com.mx.palmod.behavior.PalBehavior;
+import com.mx.palmod.behavior.PalBehaviorManager;
+import com.mx.palmod.stats.PalFoodManager;
+import com.mx.palmod.stats.PalStats;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.player.Player;
+import net.minecraftforge.event.entity.EntityJoinLevelEvent;
+import net.minecraftforge.event.entity.living.LivingChangeTargetEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraft.nbt.CompoundTag;
+
+import java.util.UUID;
+
+@Mod.EventBusSubscriber(modid = Palmod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
+public class ForgeEvents {
+
+    @SubscribeEvent
+    public static void onLivingChangeTarget(LivingChangeTargetEvent event) {
+        LivingEntity entity = event.getEntity();
+        LivingEntity target = event.getNewTarget();
+
+        if (target instanceof Player player) {
+            // Check if this entity was caught and tamed by this player
+            if (entity.getPersistentData().contains("PalOwner")) {
+                UUID ownerId = entity.getPersistentData().getUUID("PalOwner");
+                if (ownerId.equals(player.getUUID())) {
+                    event.setCanceled(true); // Don't target the owner
+                }
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public static void onAddReloadListeners(net.minecraftforge.event.AddReloadListenerEvent event) {
+        event.addListener(com.mx.palmod.behavior.PalBehaviorManager.INSTANCE);
+        event.addListener(PalFoodManager.INSTANCE);
+        event.addListener(com.mx.palmod.stats.PalTradeManager.INSTANCE);
+    }
+
+    @SubscribeEvent
+    public static void onLivingHurt(net.minecraftforge.event.entity.living.LivingHurtEvent event) {
+        LivingEntity victim = event.getEntity();
+        if (victim.level().isClientSide()) return;
+        // The resume burst must not re-trigger procs or re-bank itself
+        if (com.mx.palmod.timestop.TimeStopManager.isApplyingBurst()) return;
+        // Wild damage-immune mobs shrug off everything but their natural predator
+        if (com.mx.palmod.pal.WildCatchManager.cancelIfImmune(event)) return;
+        // Anti-loop: storm procs themselves deal lightning damage
+        if (event.getSource().is(net.minecraft.world.damagesource.DamageTypes.LIGHTNING_BOLT)) return;
+        if (!(event.getSource().getEntity() instanceof net.minecraft.server.level.ServerPlayer player)) return;
+        if (event.getSource().getDirectEntity() != player) return; // direct melee only, no projectiles
+        if (victim == player || victim.getPersistentData().contains("PalOwner")) return;
+        // Storm bonus rides the triggering hit — a nested hurt() would be
+        // swallowed by the hurt-invulnerability window this hit just opened.
+        float bonus = com.mx.palmod.aura.StormAura.tryProc(player, victim);
+        if (bonus > 0) {
+            event.setAmount(event.getAmount() + bonus);
+        }
+        // ZA WARUDO: hits on frozen victims are banked (incl. the storm bonus)
+        // and land in one burst when time resumes.
+        if (com.mx.palmod.timestop.TimeStopManager.bank(player, victim, event.getAmount())) {
+            event.setCanceled(true);
+        }
+    }
+
+    // ── ZA WARUDO (time stop) hooks ─────────────────────────────────
+
+    /** TRACK A: frozen living mobs simply don't tick. HIGHEST so the pal-stats
+     *  handler below never processes a canceled tick. */
+    @SubscribeEvent(priority = net.minecraftforge.eventbus.api.EventPriority.HIGHEST)
+    public static void onLivingTickFreeze(net.minecraftforge.event.entity.living.LivingEvent.LivingTickEvent event) {
+        if (!event.getEntity().level().isClientSide()
+                && com.mx.palmod.timestop.TimeStopManager.isFrozen(event.getEntity())) {
+            event.setCanceled(true);
+        }
+    }
+
+    /** TRACK B + expiry: sweep non-living entities and end expired freezes. */
+    @SubscribeEvent
+    public static void onServerTick(net.minecraftforge.event.TickEvent.ServerTickEvent event) {
+        if (event.phase != net.minecraftforge.event.TickEvent.Phase.END) return;
+        net.minecraft.server.MinecraftServer server =
+                net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+        if (server != null) {
+            com.mx.palmod.timestop.TimeStopManager.tick(server);
+            com.mx.palmod.pal.TempBlockReverter.tick(server);
+        }
+    }
+
+    /** A stopped world must never outlive its server. */
+    @SubscribeEvent
+    public static void onServerStopping(net.minecraftforge.event.server.ServerStoppingEvent event) {
+        com.mx.palmod.timestop.TimeStopManager.resumeAll(event.getServer());
+    }
+
+    @SubscribeEvent
+    public static void onEntityJoinLevel(EntityJoinLevelEvent event) {
+        if (!event.getLevel().isClientSide()) {
+            // Entities stranded frozen by a chunk unload restore themselves here
+            com.mx.palmod.timestop.TimeStopManager.restoreIfStale(event.getEntity());
+        }
+        if (!event.getLevel().isClientSide() && event.getEntity() instanceof Mob mob) {
+            // Swarm clones carry their own melee goal from PalCloneGoal and must
+            // NOT be wild-rolled or given pal goals — they're throwaway echoes.
+            if (mob.getPersistentData().getBoolean(com.mx.palmod.ai.PalCloneGoal.KEY_CLONE)) {
+                return;
+            }
+
+            PalBehavior stationBehavior = PalBehaviorManager.getBehavior(mob.getType());
+
+            // Station mode: the pal works at a fixed station, job chosen by worker_type.
+            // Checked independently of PalOwner — station pals may have lost their owner
+            // tag (e.g. after a recall/summon cycle) but must keep working after reload.
+            if (stationBehavior.isStationMode() && mob.getPersistentData().contains("WorkStationPos")) {
+                net.minecraft.core.BlockPos stationPos = net.minecraft.core.BlockPos.of(
+                        mob.getPersistentData().getLong("WorkStationPos"));
+                mob.goalSelector.addGoal(1, com.mx.palmod.ai.WorkerGoalRegistry.create(
+                        stationBehavior.getStationWorkerType(), mob, stationPos, stationBehavior));
+                // Still add feeder-seeking even for station workers
+                mob.goalSelector.addGoal(0, new PalSeekFeederGoal(mob));
+                return; // Don't add normal Pal goals for station workers
+            }
+
+            // Special deployments (sneak-throw): rooted pals with their own goal set
+            String deployMode = mob.getPersistentData().getString("DeployMode");
+            if ("anchor".equals(deployMode)) {
+                // Waystone anchor: actively rooted where it landed (goal flags alone
+                // can't hold MoveControl-driven flyers in place)
+                mob.goalSelector.addGoal(1, new com.mx.palmod.ai.PalRootGoal(mob));
+                return;
+            }
+            if ("sentry".equals(deployMode)) {
+                mob.goalSelector.addGoal(1, new com.mx.palmod.ai.PalSentryGoal(
+                        mob, stationBehavior.getSentryRadius()));
+                return;
+            }
+
+            // Wild-catch system: naturally spawned mobs roll catchable once and,
+            // if catchable, get their wild difficulty goals (brawler/skittish/...)
+            if (!mob.getPersistentData().contains("PalOwner")
+                    && !mob.getPersistentData().contains("SphereUUID")) {
+                com.mx.palmod.pal.WildCatchManager.onWildJoin(mob, stationBehavior);
+            }
+
+            if (mob.getPersistentData().contains("PalOwner")) {
+                PalBehavior behavior = PalBehaviorManager.getBehavior(mob.getType());
+
+                // Feeder-seeking goal — highest priority for all Pals
+                mob.goalSelector.addGoal(0, new PalSeekFeederGoal(mob));
+
+                // (sit/stand toggle removed — pals no longer sit)
+
+                // Follow sits BELOW combat goals: a pal with a live target fights
+                // first and only runs back to the owner when out of range.
+                if (behavior.isFollowOwner()) {
+                    mob.goalSelector.addGoal(3, new PalFollowOwnerGoal(
+                        mob,
+                        behavior.getFollowSpeed(),
+                        behavior.getStartDistance(),
+                        behavior.getStopDistance()
+                    ));
+                }
+
+                if (behavior.isProtectOwner()) {
+                    mob.targetSelector.addGoal(1, new PalTargetOwnerAttackerGoal(
+                        mob, behavior.isGuardOnly(), behavior.getGuardLeash()));
+                }
+
+                // Guard-only pals never initiate attacks on the owner's target
+                if (behavior.isAttackTarget() && !behavior.isGuardOnly()) {
+                    mob.targetSelector.addGoal(2, new PalAttackOwnerTargetGoal(mob));
+                }
+
+                if (behavior.isMeleeAttack() && mob instanceof net.minecraft.world.entity.PathfinderMob pathfinderMob) {
+                    mob.goalSelector.addGoal(2, new net.minecraft.world.entity.ai.goal.MeleeAttackGoal(
+                        pathfinderMob,
+                        behavior.getMeleeAttackSpeed(),
+                        true
+                    ));
+                }
+
+                // Elemental casts (lightning/fireball/earth_spike/water_burst)
+                if (!behavior.getCombatAbilityType().isEmpty()) {
+                    mob.goalSelector.addGoal(2, new com.mx.palmod.ai.PalCastAttackGoal(mob, behavior));
+                }
+
+                // Clone/swarm: split into temporary copies when it has a target
+                if (behavior.getCloneMax() > 0) {
+                    mob.goalSelector.addGoal(2, new com.mx.palmod.ai.PalCloneGoal(mob, behavior));
+                }
+
+                // Magnet delivery run: carry the hoard to a chest / storage pal
+                if (behavior.getMagnetRadius() > 0) {
+                    mob.goalSelector.addGoal(2, new com.mx.palmod.ai.PalMagnetDepositGoal(mob, behavior));
+                }
+
+                if (behavior.isCanFetch()) {
+                    mob.goalSelector.addGoal(1, new com.mx.palmod.ai.FetchGoal(mob, behavior.getFetchRadius()));
+                }
+            }
+        }
+    }
+
+    /**
+     * A short server-side cooldown after any canceled sphere-in-hand interaction.
+     * A modded client whose local mobInteract returned PASS follows the interact
+     * packet with a ServerboundUseItemPacket; without this the trailing packet
+     * reaches Item.use() and throws/summons a second sphere.
+     */
+    private static void suppressFollowUpUse(Player player, net.minecraft.world.item.ItemStack held) {
+        if (held.getItem() instanceof com.mx.palmod.item.PalSphereItem
+                || held.getItem() instanceof com.mx.palmod.item.FilledPalSphereItem) {
+            player.getCooldowns().addCooldown(held.getItem(), 10);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onEntityInteract(net.minecraftforge.event.entity.player.PlayerInteractEvent.EntityInteract event) {
+        if (event.getLevel().isClientSide()) {
+            // Mirror the throw branch's client-evaluable conditions and consume
+            // the click so the client never falls through to gameMode.useItem
+            // (which would send a use packet and double-throw the sphere).
+            net.minecraft.world.entity.Entity clientTarget = event.getTarget();
+            if (clientTarget instanceof LivingEntity && !(clientTarget instanceof Player)
+                    && !(clientTarget instanceof net.minecraft.world.entity.npc.Npc)) {
+                net.minecraft.world.item.ItemStack clientHeld = event.getEntity().getItemInHand(event.getHand());
+                if (clientHeld.getItem() instanceof com.mx.palmod.item.PalSphereItem
+                        || (clientHeld.getItem() instanceof com.mx.palmod.item.FilledPalSphereItem
+                            && clientHeld.hasTag() && clientHeld.getTag().contains("CapturedEntity")
+                            && !clientHeld.getTag().getBoolean("IsReleased"))) {
+                    event.setCanceled(true);
+                    event.setCancellationResult(net.minecraft.world.InteractionResult.SUCCESS);
+                }
+            }
+            return;
+        }
+        {
+            net.minecraft.world.entity.Entity entity = event.getTarget();
+            Player player = event.getEntity();
+
+            // ── Hand-feed STATION pals (they're excluded from the routing below;
+            // without this the mob's own AI eats the food with no hunger gain) ──
+            if (event.getHand() == net.minecraft.world.InteractionHand.MAIN_HAND
+                    && entity instanceof Mob stationMob
+                    && stationMob.getPersistentData().hasUUID("PalOwner")
+                    && stationMob.getPersistentData().contains("WorkStationPos")
+                    && stationMob.getPersistentData().getUUID("PalOwner").equals(player.getUUID())) {
+                net.minecraft.world.item.ItemStack stationHeld = player.getMainHandItem();
+                if (!stationHeld.isEmpty() && PalStats.getHunger(stationMob) < PalStats.MAX_HUNGER
+                        && (stationHeld.isEdible()
+                        || PalFoodManager.getTable(stationMob.getType()).canHandFeed(stationHeld.getItem()))) {
+                    if (PalFoodManager.tryFeed(stationMob, stationHeld)) {
+                        if (!player.getAbilities().instabuild) stationHeld.shrink(1);
+                        player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                                stationMob.getName().getString() + " ate! Hunger: "
+                                        + String.format("%.0f%%", PalStats.getHunger(stationMob))), true);
+                        suppressFollowUpUse(player, stationHeld);
+                        event.setCanceled(true);
+                        event.setCancellationResult(net.minecraft.world.InteractionResult.SUCCESS);
+                        return;
+                    }
+                }
+            }
+
+            if (event.getHand() == net.minecraft.world.InteractionHand.MAIN_HAND
+                    && entity instanceof Mob mob && mob.getPersistentData().contains("PalOwner")
+                    && !mob.getPersistentData().contains("WorkStationPos")
+                    && mob.getPersistentData().getString("DeployMode").isEmpty()) {
+                UUID ownerId = mob.getPersistentData().getUUID("PalOwner");
+                if (ownerId.equals(player.getUUID())) {
+                    PalBehavior interactBehavior = PalBehaviorManager.getBehavior(mob.getType());
+                    net.minecraft.world.item.ItemStack held = player.getMainHandItem();
+
+                    // ── Sneak-click branch (never falls through to sit) ──
+                    if (player.isShiftKeyDown()) {
+                        // Sneak + sample item on a fetcher: go get it from a chest
+                        if (interactBehavior.isCanFetch() && !held.isEmpty()) {
+                            mob.getPersistentData().putBoolean("PalSitting", false); // stand up and go
+                            mob.getPersistentData().putString("FetchItem",
+                                    net.minecraftforge.registries.ForgeRegistries.ITEMS
+                                            .getKey(held.getItem()).toString());
+                            player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                                    mob.getName().getString() + " runs off to find "
+                                            + held.getHoverName().getString() + "..."));
+                            suppressFollowUpUse(player, held);
+                            event.setCanceled(true);
+                            event.setCancellationResult(net.minecraft.world.InteractionResult.SUCCESS);
+                            return;
+                        }
+                        // Sneak on a pouch pal: open the pouch
+                        if (interactBehavior.getMobileChestSize() > 0
+                                && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                            com.mx.palmod.pal.PalChest.open(serverPlayer, mob, interactBehavior.getMobileChestSize());
+                            suppressFollowUpUse(player, held);
+                            event.setCanceled(true);
+                            event.setCancellationResult(net.minecraft.world.InteractionResult.SUCCESS);
+                            return;
+                        }
+                        // Sneak + empty hand on an XP collector: extract bottles
+                        if (interactBehavior.getXpCollectRadius() > 0 && held.isEmpty()
+                                && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                            com.mx.palmod.pal.PalPassives.extractXpBottles(serverPlayer, mob);
+                            event.setCanceled(true);
+                            event.setCancellationResult(net.minecraft.world.InteractionResult.SUCCESS);
+                        }
+                        return;
+                    }
+
+                    // ── Plain click with food: hand-feed the pal (skip when full —
+                    // don't silently eat items for nothing) ──
+                    if (!held.isEmpty() && PalStats.getHunger(mob) < PalStats.MAX_HUNGER
+                            && (held.isEdible()
+                            || PalFoodManager.getTable(mob.getType()).canHandFeed(held.getItem()))) {
+                        if (PalFoodManager.tryFeed(mob, held)) {
+                            if (!player.getAbilities().instabuild) held.shrink(1);
+                            if (event.getLevel() instanceof net.minecraft.server.level.ServerLevel feedLevel) {
+                                feedLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.HAPPY_VILLAGER,
+                                        mob.getX(), mob.getY() + mob.getBbHeight() * 0.7, mob.getZ(),
+                                        6, 0.3, 0.3, 0.3, 0.05);
+                            }
+                            player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                                    mob.getName().getString() + " ate! Hunger: "
+                                            + String.format("%.0f%%", PalStats.getHunger(mob))), true);
+                            event.setCanceled(true);
+                            event.setCancellationResult(net.minecraft.world.InteractionResult.SUCCESS);
+                            return;
+                        }
+                    }
+
+                    // ── Plain click on a rideable pal: mount up ──
+                    if (interactBehavior.isRideable()) {
+                        player.startRiding(mob);
+                        suppressFollowUpUse(player, held);
+                        event.setCanceled(true);
+                        event.setCancellationResult(net.minecraft.world.InteractionResult.SUCCESS);
+                        return;
+                    }
+
+                    // Sit/stand was removed — a plain click with nothing else to
+                    // do just cancels so it doesn't trip a vanilla mob interaction.
+                    event.setCanceled(true);
+                    event.setCancellationResult(net.minecraft.world.InteractionResult.sidedSuccess(event.getLevel().isClientSide()));
+                }
+            }
+
+            if (event.isCanceled()) {
+                suppressFollowUpUse(player, player.getItemInHand(event.getHand()));
+                return;
+            }
+
+            // ── Close-range sphere throws ─────────────────────────────
+            // Right-clicking with the crosshair ON a mob routes here and never
+            // reaches Item.use(), so point-blank throws used to do nothing.
+            // Villagers are skipped so trading still works; owned pals are
+            // skipped so a mis-click never wastes a guaranteed-loss sphere.
+            if (entity instanceof LivingEntity && !(entity instanceof Player)
+                    && !(entity instanceof net.minecraft.world.entity.npc.Npc)
+                    && !entity.getPersistentData().contains("PalOwner")) {
+                net.minecraft.world.item.ItemStack stack = player.getItemInHand(event.getHand());
+                if (stack.getItem() instanceof com.mx.palmod.item.PalSphereItem sphereItem) {
+                    com.mx.palmod.item.PalSphereItem.throwSphere(
+                            event.getLevel(), player, stack, sphereItem.getSphereLevel());
+                    player.awardStat(net.minecraft.stats.Stats.ITEM_USED.get(sphereItem));
+                    if (!player.getAbilities().instabuild) stack.shrink(1);
+                    // Block the trailing use packet a modded client sends
+                    player.getCooldowns().addCooldown(sphereItem, 10);
+                    event.setCanceled(true);
+                    event.setCancellationResult(net.minecraft.world.InteractionResult.SUCCESS);
+                    return;
+                }
+                if (stack.getItem() instanceof com.mx.palmod.item.FilledPalSphereItem
+                        && stack.hasTag() && stack.getTag().contains("CapturedEntity")
+                        && !stack.getTag().getBoolean("IsReleased")) {
+                    com.mx.palmod.item.FilledPalSphereItem.throwSummon(event.getLevel(), player, stack);
+                    event.setCanceled(true);
+                    event.setCancellationResult(net.minecraft.world.InteractionResult.SUCCESS);
+                    return;
+                }
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public static void onLivingTick(net.minecraftforge.event.entity.living.LivingEvent.LivingTickEvent event) {
+        LivingEntity entity = event.getEntity();
+        if (entity.level().isClientSide()) return;
+
+        // Swarm clones self-destruct on their timer (the reliable backstop) and
+        // keep chasing whatever their master is fighting while it lives.
+        if (entity.getPersistentData().getBoolean(com.mx.palmod.ai.PalCloneGoal.KEY_CLONE)) {
+            CompoundTag cd = entity.getPersistentData();
+            boolean expired = entity.level().getGameTime() >= cd.getLong(com.mx.palmod.ai.PalCloneGoal.KEY_EXPIRE);
+            if (expired || !cd.hasUUID(com.mx.palmod.ai.PalCloneGoal.KEY_MASTER)) {
+                if (entity.level() instanceof net.minecraft.server.level.ServerLevel dsl) {
+                    dsl.sendParticles(net.minecraft.core.particles.ParticleTypes.CLOUD,
+                            entity.getX(), entity.getY() + entity.getBbHeight() * 0.5, entity.getZ(),
+                            6, 0.2, 0.3, 0.2, 0.02);
+                }
+                entity.discard();
+                return;
+            }
+            // Re-seed the target from the (loaded) master so the swarm follows
+            // its enemy. A null master here means dead OR just unloaded — either
+            // way the expiry timer above is the cleanup, never a premature kill.
+            if (entity.level() instanceof net.minecraft.server.level.ServerLevel csl
+                    && csl.getEntity(cd.getUUID(com.mx.palmod.ai.PalCloneGoal.KEY_MASTER)) instanceof Mob masterMob
+                    && entity instanceof Mob cloneMob) {
+                LivingEntity mt = masterMob.getTarget();
+                if (mt != null && mt.isAlive()
+                        && (cloneMob.getTarget() == null || !cloneMob.getTarget().isAlive())) {
+                    cloneMob.setTarget(mt);
+                }
+            }
+            return; // clones run no other pal logic
+        }
+
+        // Per-tick (steering can't run on the 20-tick cadence): ridden mounts
+        if (entity instanceof Mob riddenMob && riddenMob.isVehicle()
+                && riddenMob.getPersistentData().contains("PalOwner")) {
+            PalBehavior rideBehavior = PalBehaviorManager.getBehavior(riddenMob.getType());
+            if (rideBehavior.isRideable()) {
+                com.mx.palmod.pal.PalMountHandler.steer(riddenMob, rideBehavior);
+            }
+        }
+
+        if (entity.tickCount % 20 != 0) return;
+
+        CompoundTag data = entity.getPersistentData();
+        boolean isPal = data.contains("PalOwner");
+
+        // ── Hunger decay for all Pals ──────────────────────────────────
+        if (isPal && entity instanceof Mob mob) {
+            PalBehavior behavior = PalBehaviorManager.getBehavior(mob.getType());
+
+            // Deployed (anchor/sentry) pals are rooted and can't reach a feeder —
+            // their hunger/mood is frozen while deployed.
+            boolean deployed = !mob.getPersistentData().getString("DeployMode").isEmpty();
+            if (!deployed) {
+                // Decay timer: 1 tick = 1/20 second; decay rate = per minute (1200 ticks)
+                int decayTimer = PalStats.getDecayTimer(mob) + 1;
+                // Decay interval in ticks for hunger_decay_per_minute → every 1200 ticks = 1 point if rate=1
+                float decayPerTick = behavior.getHungerDecayPerMinute() / 1200f;
+                // We run every 20 ticks, so per call = decayPerTick * 20
+                PalStats.modifyHunger(mob, -(decayPerTick * 20f));
+                PalStats.setDecayTimer(mob, decayTimer);
+
+                // Mood decay: per Minecraft day (24000 ticks) → per 20-tick call = moodDecayPerDay/1200
+                float moodDecayPerCall = behavior.getMoodDecayPerDay() / 1200f;
+                PalStats.modifyMood(mob, -moodDecayPerCall);
+            }
+
+            // Apply speed effects based on hunger state
+            PalStats.applySpeedEffects(mob);
+
+            // Owner auras (heal, storm, ...) pulse on this same cadence
+            com.mx.palmod.aura.PalAuraManager.tickAura(mob, behavior);
+
+            // Passives: XP absorption, item magnet, greedy boom
+            com.mx.palmod.pal.PalPassives.tick(mob, behavior);
+        }
+
+        // ── Wild catchable upkeep: glow, shimmer, hide/reveal, brawler buffs ──
+        if (!isPal && entity instanceof Mob wildMob && data.getBoolean("PalCatchable")) {
+            com.mx.palmod.pal.WildCatchManager.tickWild(wildMob);
+        }
+
+        // ── Orphan & Dynamic Ownership check ───────────────────
+        if (data.contains("SphereUUID")) {
+            boolean isStationPal = data.contains("WorkStationPos");
+            if (isStationPal) {
+                // Station pals belong to the workstation. Check if workstation still exists.
+                net.minecraft.core.BlockPos pos = net.minecraft.core.BlockPos.of(data.getLong("WorkStationPos"));
+                if (entity.level().isLoaded(pos)) {
+                    net.minecraft.world.level.block.entity.BlockEntity be = entity.level().getBlockEntity(pos);
+                    if (!(be instanceof com.mx.palmod.block.PalWorkStationBlockEntity)) {
+                        entity.discard();
+                    }
+                }
+                // Station pals keep PalOwner: goal injection never gives them follow
+                // goals, and PalSeekFeederGoal needs the owner tag to stay functional.
+            } else if (!data.getString("DeployMode").isEmpty()) {
+                // Anchored/sentry pals stay deployed while their sphere is stashed
+                // anywhere in the owner's inventory — deliberate recall brings them back.
+            } else {
+                UUID sphereId = data.getUUID("SphereUUID");
+                Player currentHolder = null;
+
+                for (Player p : entity.level().players()) {
+                    for (int i = 0; i < 9; i++) {
+                        net.minecraft.world.item.ItemStack stack = p.getInventory().getItem(i);
+                        if (stack.getItem() instanceof com.mx.palmod.item.FilledPalSphereItem && stack.hasTag()) {
+                            if (stack.getTag().getBoolean("IsReleased") && stack.getTag().hasUUID("SphereUUID")) {
+                                if (stack.getTag().getUUID("SphereUUID").equals(sphereId)) {
+                                    currentHolder = p;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (currentHolder == null) {
+                        net.minecraft.world.item.ItemStack offhand = p.getOffhandItem();
+                        if (offhand.getItem() instanceof com.mx.palmod.item.FilledPalSphereItem && offhand.hasTag()) {
+                            if (offhand.getTag().getBoolean("IsReleased") && offhand.getTag().hasUUID("SphereUUID")) {
+                                if (offhand.getTag().getUUID("SphereUUID").equals(sphereId)) {
+                                    currentHolder = p;
+                                }
+                            }
+                        }
+                    }
+                    if (currentHolder != null) break;
+                }
+                
+                if (currentHolder != null) {
+                    data.putUUID("PalOwner", currentHolder.getUUID());
+                } else if (!entity.isVehicle()) {
+                    // Never discard a mount out from under its rider mid-ocean
+                    entity.discard();
+                }
+            }
+        }
+    }
+
+    /** Pal Compass upkeep: a held compass tagged PalCompass points at the nearest catchable wild mob. */
+    @SubscribeEvent
+    public static void onPlayerTick(net.minecraftforge.event.TickEvent.PlayerTickEvent event) {
+        if (event.phase != net.minecraftforge.event.TickEvent.Phase.END) return;
+        if (event.side != net.minecraftforge.fml.LogicalSide.SERVER) return;
+        Player player = event.player;
+        if (player.tickCount % 20 != 0) return;
+        if (!(player.level() instanceof net.minecraft.server.level.ServerLevel serverLevel)) return;
+        for (net.minecraft.world.InteractionHand hand : net.minecraft.world.InteractionHand.values()) {
+            net.minecraft.world.item.ItemStack stack = player.getItemInHand(hand);
+            if (stack.getItem() == net.minecraft.world.item.Items.COMPASS
+                    && stack.hasTag() && stack.getTag().getBoolean("PalCompass")) {
+                com.mx.palmod.pal.WildCatchManager.updatePalCompass(serverLevel, player, stack);
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public static void onPlayerLoggedOut(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) {
+        Player player = event.getEntity();
+        com.mx.palmod.aura.StormAura.clear(player.getUUID());
+        com.mx.palmod.timestop.TimeStopManager.endForCaster(player.getUUID(), player.getServer());
+        if (player.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+            for (int i = 0; i < 9; i++) {
+                net.minecraft.world.item.ItemStack stack = player.getInventory().getItem(i);
+                if (stack.getItem() instanceof com.mx.palmod.item.FilledPalSphereItem && !isDeployedSphere(stack)) {
+                    com.mx.palmod.item.FilledPalSphereItem.recallMob(stack, serverLevel);
+                }
+            }
+            net.minecraft.world.item.ItemStack offhand = player.getOffhandItem();
+            if (offhand.getItem() instanceof com.mx.palmod.item.FilledPalSphereItem && !isDeployedSphere(offhand)) {
+                com.mx.palmod.item.FilledPalSphereItem.recallMob(offhand, serverLevel);
+            }
+        }
+    }
+
+    /** A released sphere whose pal is deployed (anchor/sentry) — stays out through logout. */
+    private static boolean isDeployedSphere(net.minecraft.world.item.ItemStack stack) {
+        CompoundTag tag = stack.getTag();
+        return tag != null && tag.getBoolean("IsReleased") && !tag.getString("DeployMode").isEmpty();
+    }
+
+    @SubscribeEvent
+    public static void onItemToss(net.minecraftforge.event.entity.item.ItemTossEvent event) {
+        net.minecraft.world.item.ItemStack stack = event.getEntity().getItem();
+        if (stack.getItem() instanceof com.mx.palmod.item.FilledPalSphereItem) {
+            if (event.getPlayer().level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                com.mx.palmod.item.FilledPalSphereItem.recallMob(stack, serverLevel);
+            }
+        }
+    }
+
+    /** Swarm clones are illusions — killing one yields no loot or XP. */
+    @SubscribeEvent
+    public static void onCloneDrops(net.minecraftforge.event.entity.living.LivingDropsEvent event) {
+        if (event.getEntity().getPersistentData().getBoolean(com.mx.palmod.ai.PalCloneGoal.KEY_CLONE)) {
+            event.getDrops().clear();
+        }
+    }
+
+    @SubscribeEvent
+    public static void onCloneXp(net.minecraftforge.event.entity.living.LivingExperienceDropEvent event) {
+        if (event.getEntity().getPersistentData().getBoolean(com.mx.palmod.ai.PalCloneGoal.KEY_CLONE)) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onLivingDeath(net.minecraftforge.event.entity.living.LivingDeathEvent event) {
+        LivingEntity entity = event.getEntity();
+        // A dying pal drops its pouch contents and spills its stored XP
+        if (!entity.level().isClientSide() && entity instanceof Mob deadMob
+                && entity.level() instanceof net.minecraft.server.level.ServerLevel deathLevel) {
+            com.mx.palmod.pal.PalChest.dropContents(deathLevel, deadMob);
+            int storedXp = deadMob.getPersistentData().getInt(com.mx.palmod.pal.PalPassives.KEY_STORED_XP);
+            if (storedXp > 0) {
+                net.minecraft.world.entity.ExperienceOrb.award(deathLevel, deadMob.position(), storedXp);
+                deadMob.getPersistentData().remove(com.mx.palmod.pal.PalPassives.KEY_STORED_XP);
+            }
+        }
+
+        // Track player kills for the greedy pal's mimicry (skip players, pals,
+        // and synthetic mimic kills — no self-sustaining loot loops)
+        if (!entity.level().isClientSide() && !(entity instanceof Player)
+                && !entity.getPersistentData().contains("PalOwner")
+                && !entity.getPersistentData().getBoolean("PalMimic")
+                && event.getSource().getEntity() instanceof net.minecraft.server.level.ServerPlayer killer) {
+            com.mx.palmod.pal.KillTracker.record(killer.getUUID(), entity.getType(),
+                    entity.level().getGameTime());
+        }
+        if (!entity.level().isClientSide() && entity.getPersistentData().contains("SphereUUID")) {
+            boolean isStationPal = entity.getPersistentData().contains("WorkStationPos");
+            if (isStationPal) {
+                // Confirmed death: break the station right away with an EMPTY
+                // sphere (the BE's missing-worker grace path is for the pal
+                // VANISHING and returns a filled sphere instead).
+                net.minecraft.core.BlockPos stationPos = net.minecraft.core.BlockPos.of(
+                        entity.getPersistentData().getLong("WorkStationPos"));
+                if (entity.level() instanceof net.minecraft.server.level.ServerLevel stationLevel
+                        && stationLevel.isLoaded(stationPos)
+                        && stationLevel.getBlockEntity(stationPos)
+                                instanceof com.mx.palmod.block.PalWorkStationBlockEntity station) {
+                    station.onWorkerDied(stationLevel, stationPos);
+                }
+                return;
+            }
+            
+            if (entity.getPersistentData().contains("PalOwner")) {
+                UUID ownerId = entity.getPersistentData().getUUID("PalOwner");
+                Player owner = entity.level().getPlayerByUUID(ownerId);
+                if (owner != null) {
+                    UUID sphereId = entity.getPersistentData().getUUID("SphereUUID");
+                    
+                    for (int i = 0; i < owner.getInventory().getContainerSize(); i++) {
+                        net.minecraft.world.item.ItemStack stack = owner.getInventory().getItem(i);
+                        if (stack.getItem() instanceof com.mx.palmod.item.FilledPalSphereItem && stack.hasTag()) {
+                             if (stack.getTag().hasUUID("SphereUUID") && stack.getTag().getUUID("SphereUUID").equals(sphereId)) {
+                                 owner.getInventory().setItem(i, new net.minecraft.world.item.ItemStack(com.mx.palmod.registry.ModRegistries.PAL_SPHERE.get()));
+                                 break;
+                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

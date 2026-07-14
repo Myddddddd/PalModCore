@@ -1,0 +1,21 @@
+{
+  "entity": "alexsmobs:capuchin_monkey",
+  "behaviors": {
+    "follow_owner": { "speed": 1.4, "start_distance": 15.0, "stop_distance": 6.0 },
+    "protect_owner": true,
+    "attack_target": true,
+    "melee_attack": { "speed": 1.4 },
+    "clone": { "max": 6, "duration_ticks": 200, "cooldown_ticks": 300, "hunger_cost": 4.0 }
+  },
+  "stats": {
+    "hunger_decay_per_minute": 3.0,
+    "mood_decay_per_day": 2.0
+  },
+  "hunger_costs": { "attack": 1.0 },
+  "wild": {
+    "category": "skittish",
+    "sight_range": 28.0,
+    "hearing_range": 18.0,
+    "flee_speed": 1.5
+  }
+}

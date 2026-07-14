@@ -1,0 +1,36 @@
+{
+  "parent": "root.json",
+  "text": "tasmanian_devil.txt",
+  "title": "entity.alexsmobs.tasmanian_devil",
+  "linked_page_buttons": [
+    {
+      "linked_page": "palmod_tasmanian_devil.json",
+      "text": "palmod.book.pal_info",
+      "x": 115,
+      "y": 4,
+      "page": 0,
+      "item": "palmod:filled_pal_sphere"
+    }
+  ],
+  "images": [
+  ],
+  "item_renders": [
+  ],
+  "recipes": [
+  ],
+  "tabula_renders": [
+  ],
+  "entity_renders": [
+    {
+      "entity": "alexsmobs:tasmanian_devil",
+      "x": 90,
+      "y": 76,
+      "page" : 0,
+      "scale": 2.4,
+      "rot_x": 30,
+      "rot_y": 225,
+      "rot_z": 0,
+      "follow_cursor": false
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+<NEWLINE>
+<NEWLINE>
+Pal Spheres are your catching tool. Throw one at a wild creature to try to catch it.
+<NEWLINE>
+Three tiers exist: the Pal Sphere (catch level 1), the Mid Pal Sphere (level 5) and the Advanced Pal Sphere (level 10). A higher tier catches tougher creatures.
+<NEWLINE>
+Right-click a creature up close to throw point-blank. Only creatures that shimmer faintly can be caught - a sphere thrown at anything else is lost.

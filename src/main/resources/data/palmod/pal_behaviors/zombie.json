@@ -1,0 +1,15 @@
+{
+  "entity": "minecraft:zombie",
+  "behaviors": {
+    "follow_owner": {
+      "speed": 1.2,
+      "start_distance": 18.0,
+      "stop_distance": 6.0
+    },
+    "protect_owner": true,
+    "attack_target": true,
+    "melee_attack": {
+      "speed": 1.2
+    }
+  }
+}

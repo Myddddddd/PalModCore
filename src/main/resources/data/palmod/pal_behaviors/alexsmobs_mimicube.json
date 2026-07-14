@@ -1,0 +1,13 @@
+{
+  "entity": "alexsmobs:mimicube",
+  "behaviors": {
+    "follow_owner": { "speed": 1.1, "start_distance": 15.0, "stop_distance": 7.5 },
+    "protect_owner": false,
+    "attack_target": false,
+    "magnet": { "radius": 6.0, "slots": 2 }
+  },
+  "stats": {
+    "hunger_decay_per_minute": 2.0,
+    "mood_decay_per_day": 2.0
+  }
+}

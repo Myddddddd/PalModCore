@@ -1,0 +1,13 @@
+{
+  "parent": "grizzly_bear.json",
+  "text": "palmod_grizzly_bear.txt",
+  "title": "palmod.book.grizzly_bear_pal",
+  "linked_page_buttons": [],
+  "images": [],
+  "item_renders": [
+    { "item": "palmod:filled_pal_sphere", "x": 90, "y": 14, "page": 0, "scale": 2.0 }
+  ],
+  "recipes": [],
+  "tabula_renders": [],
+  "entity_renders": []
+}

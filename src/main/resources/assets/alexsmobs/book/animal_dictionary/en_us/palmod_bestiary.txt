@@ -1,0 +1,1 @@
+Click a creature to open its Pal Info.

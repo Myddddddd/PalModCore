@@ -1,0 +1,30 @@
+{
+  "entity": "alexsmobs:grizzly_bear",
+  "behaviors": {
+    "follow_owner": {
+      "speed": 1.1,
+      "start_distance": 18.0,
+      "stop_distance": 9.0
+    },
+    "protect_owner": true,
+    "attack_target": false,
+    "guard_only": true,
+    "guard_leash": 12.0,
+    "melee_attack": {
+      "speed": 1.2
+    }
+  },
+  "stats": {
+    "hunger_decay_per_minute": 3.0,
+    "mood_decay_per_day": 2.0
+  },
+  "hunger_costs": {
+    "attack": 3.0,
+    "move_per_block": 0.03
+  },
+  "wild": {
+    "category": "brawler",
+    "health_multiplier": 1.5,
+    "resistance": 0
+  }
+}

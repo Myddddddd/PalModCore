@@ -1,0 +1,7 @@
+<NEWLINE>
+<NEWLINE>
+Your catch chance rises with the sphere level and with how much health the target has lost, and falls with the creature's maximum health.
+<NEWLINE>
+So weaken a creature first, and bring a stronger sphere, for the best odds.
+<NEWLINE>
+A success turns the sphere into a Filled Pal Sphere holding that Pal. Throw it to summon the Pal; right-click while it is out to recall it.

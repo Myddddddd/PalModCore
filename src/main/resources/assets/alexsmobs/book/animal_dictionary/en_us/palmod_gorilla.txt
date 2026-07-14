@@ -1,0 +1,10 @@
+<NEWLINE>
+<NEWLINE>
+<NEWLINE>
+PAL STATS - Health: 30 | Attack: 7
+<NEWLINE>
+PAL ABILITY - Lumberjack. Use its filled sphere on the ground to place a Work Station. The gorilla fells whole trees around the station and deposits the logs into the output slot.
+<NEWLINE>
+WILD VARIANT - Skittish. A wild catchable one flees the moment it sees or hears you. Sneak to quarter its detection range before throwing a sphere.
+<NEWLINE>
+CATCHING - Catch rate scales with sphere tier and the Leveling enchant, and rises steeply as the target is weakened. Only mobs with an enchanted shimmer can be caught - a Pal Compass points to the nearest one.

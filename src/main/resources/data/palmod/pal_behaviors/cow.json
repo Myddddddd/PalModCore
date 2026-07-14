@@ -1,0 +1,12 @@
+{
+  "entity": "minecraft:cow",
+  "behaviors": {
+    "follow_owner": {
+      "speed": 1.0,
+      "start_distance": 15.0,
+      "stop_distance": 6.0
+    },
+    "protect_owner": false,
+    "attack_target": false
+  }
+}

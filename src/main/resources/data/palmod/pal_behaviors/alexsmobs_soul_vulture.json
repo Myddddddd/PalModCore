@@ -1,0 +1,16 @@
+{
+  "entity": "alexsmobs:soul_vulture",
+  "behaviors": {
+    "follow_owner": { "speed": 1.1, "start_distance": 18.0, "stop_distance": 9.0 },
+    "protect_owner": true,
+    "attack_target": true,
+    "combat_ability": { "type": "fireball", "damage": 5.0, "range": 16.0, "cooldown_ticks": 80, "hunger_cost": 2.0 }
+  },
+  "stats": { "hunger_decay_per_minute": 3.0, "mood_decay_per_day": 2.0 },
+  "wild": {
+    "category": "brawler",
+    "health_multiplier": 1.3,
+    "resistance": 0,
+    "use_combat_ability": true
+  }
+}

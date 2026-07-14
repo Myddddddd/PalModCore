@@ -1,0 +1,10 @@
+<NEWLINE>
+<NEWLINE>
+<NEWLINE>
+PAL STATS - Health: 15 | Attack: -
+<NEWLINE>
+PAL ABILITY - Heal aura. While it is out and fed, it slowly regenerates you and nearby allies.
+<NEWLINE>
+WILD VARIANT - Shy. It turns invisible and hides whenever players come near - unless a PASSIVE owned pal is close by to reassure it. Bring a gentle friend.
+<NEWLINE>
+CATCHING - Catch rate scales with sphere tier and the Leveling enchant, and rises steeply as the target is weakened. Only mobs with an enchanted shimmer can be caught - a Pal Compass points to the nearest one.

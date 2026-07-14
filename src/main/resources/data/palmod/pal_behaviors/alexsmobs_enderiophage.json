@@ -1,0 +1,25 @@
+{
+  "entity": "alexsmobs:enderiophage",
+  "behaviors": {
+    "follow_owner": { "speed": 1.1, "start_distance": 18.0, "stop_distance": 9.0 },
+    "protect_owner": false,
+    "attack_target": false
+  },
+  "time_stop": {
+    "duration_ticks": 200,
+    "radius": 24.0,
+    "cooldown_ticks": 1200,
+    "hunger_cost": 40.0,
+    "on_summon": true
+  },
+  "stats": {
+    "hunger_decay_per_minute": 1.0,
+    "mood_decay_per_day": 2.0
+  },
+  "wild": {
+    "category": "op",
+    "type": "time_stop",
+    "radius": 24.0,
+    "cooldown_ticks": 600
+  }
+}

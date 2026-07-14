@@ -1,0 +1,36 @@
+{
+  "parent": "root.json",
+  "text": "elephant.txt",
+  "title": "entity.alexsmobs.elephant",
+  "linked_page_buttons": [
+    {
+      "linked_page": "palmod_elephant.json",
+      "text": "palmod.book.pal_info",
+      "x": 115,
+      "y": 4,
+      "page": 0,
+      "item": "palmod:filled_pal_sphere"
+    }
+  ],
+  "images": [
+  ],
+  "item_renders": [
+  ],
+  "recipes": [
+  ],
+  "tabula_renders": [
+  ],
+  "entity_renders": [
+    {
+      "entity": "alexsmobs:elephant",
+      "x": 92,
+      "y": 120,
+      "page" : 0,
+      "scale": 0.8,
+      "rot_x": 30,
+      "rot_y": 225,
+      "rot_z": 0,
+      "follow_cursor": false
+    }
+  ]
+}

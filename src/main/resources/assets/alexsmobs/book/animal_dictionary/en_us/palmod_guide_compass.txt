@@ -1,0 +1,7 @@
+<NEWLINE>
+<NEWLINE>
+The Pal Compass points to the nearest catchable wild creature within 128 blocks. When none are near, the needle spins freely.
+<NEWLINE>
+Craft it by surrounding a compass with four Pal Spheres.
+<NEWLINE>
+It is the quickest way to find something worth catching, and the only easy way to track shy or hidden creatures.

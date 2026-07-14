@@ -1,0 +1,36 @@
+{
+  "parent": "root.json",
+  "text": "crow.txt",
+  "title": "entity.alexsmobs.crow",
+  "linked_page_buttons": [
+    {
+      "linked_page": "palmod_crow.json",
+      "text": "palmod.book.pal_info",
+      "x": 115,
+      "y": 4,
+      "page": 0,
+      "item": "palmod:filled_pal_sphere"
+    }
+  ],
+  "images": [
+  ],
+  "item_renders": [
+  ],
+  "recipes": [
+  ],
+  "tabula_renders": [
+  ],
+  "entity_renders": [
+    {
+      "entity": "alexsmobs:crow",
+      "x": 90,
+      "y": 70,
+      "page" : 0,
+      "scale": 3,
+      "rot_x": 30,
+      "rot_y": 225,
+      "rot_z": 0,
+      "follow_cursor": false
+    }
+  ]
+}

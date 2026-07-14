@@ -1,0 +1,33 @@
+{
+  "parent": "palmod_paldex.json",
+  "text": "palmod_bestiary.txt",
+  "title": "palmod.book.bestiary",
+  "entity_buttons": [
+    { "entity": "alexsmobs:gorilla",         "x": 42,  "y": 46,  "page": 0, "scale": 1.2, "entity_scale": 1.2,  "offset_x": -6,  "offset_y": -1,  "linked_page": "palmod_gorilla.json",         "hover_text": "entity.alexsmobs.gorilla" },
+    { "entity": "alexsmobs:crow",            "x": 100, "y": 46,  "page": 0, "scale": 1.2, "entity_scale": 2,    "offset_x": 0,   "offset_y": -2,  "linked_page": "palmod_crow.json",            "hover_text": "entity.alexsmobs.crow" },
+    { "entity": "alexsmobs:raccoon",         "x": 158, "y": 46,  "page": 0, "scale": 1.2, "entity_scale": 1.25, "offset_x": -1,  "offset_y": -4,  "linked_page": "palmod_raccoon.json",         "hover_text": "entity.alexsmobs.raccoon" },
+    { "entity": "alexsmobs:leafcutter_ant",  "x": 240, "y": 46,  "page": 0, "scale": 1.2, "entity_scale": 1.25, "offset_x": -1,  "offset_y": -5,  "linked_page": "palmod_leafcutter_ant.json",  "hover_text": "entity.alexsmobs.leafcutter_ant" },
+    { "entity": "alexsmobs:capuchin_monkey", "x": 298, "y": 46,  "page": 0, "scale": 1.2, "entity_scale": 1.3,  "offset_x": -1,  "offset_y": -3,  "linked_page": "palmod_capuchin_monkey.json", "hover_text": "entity.alexsmobs.capuchin_monkey" },
+    { "entity": "alexsmobs:endergrade",      "x": 356, "y": 46,  "page": 0, "scale": 1.2, "entity_scale": 1.2,  "offset_x": -6,  "offset_y": -6,  "linked_page": "palmod_endergrade.json",      "hover_text": "entity.alexsmobs.endergrade" },
+    { "entity": "alexsmobs:grizzly_bear",    "x": 42,  "y": 82,  "page": 0, "scale": 1.2, "entity_scale": 1.1,  "offset_x": -8,  "offset_y": -3,  "linked_page": "palmod_grizzly_bear.json",    "hover_text": "entity.alexsmobs.grizzly_bear" },
+    { "entity": "alexsmobs:orca",            "x": 100, "y": 82,  "page": 0, "scale": 1.2, "entity_scale": 0.45, "offset_x": -5,  "offset_y": -15, "linked_page": "palmod_orca.json",            "hover_text": "entity.alexsmobs.orca" },
+    { "entity": "alexsmobs:kangaroo",        "x": 158, "y": 82,  "page": 0, "scale": 1.2, "entity_scale": 1,    "offset_x": -3,  "offset_y": 0,   "linked_page": "palmod_kangaroo.json",        "hover_text": "entity.alexsmobs.kangaroo" },
+    { "entity": "alexsmobs:elephant",        "x": 240, "y": 82,  "page": 0, "scale": 1.2, "entity_scale": 0.5,  "offset_x": -10, "offset_y": -5,  "linked_page": "palmod_elephant.json",        "hover_text": "entity.alexsmobs.elephant" },
+    { "entity": "alexsmobs:soul_vulture",    "x": 298, "y": 82,  "page": 0, "scale": 1.2, "entity_scale": 1.1,  "offset_x": -7,  "offset_y": -5,  "linked_page": "palmod_soul_vulture.json",    "hover_text": "entity.alexsmobs.soul_vulture" },
+    { "entity": "alexsmobs:mantis_shrimp",   "x": 356, "y": 82,  "page": 0, "scale": 1.2, "entity_scale": 1.2,  "offset_x": -6,  "offset_y": -2,  "linked_page": "palmod_mantis_shrimp.json",   "hover_text": "entity.alexsmobs.mantis_shrimp" },
+    { "entity": "alexsmobs:enderiophage",    "x": 42,  "y": 118, "page": 0, "scale": 1.2, "entity_scale": 0.6,  "offset_x": 2,   "offset_y": -7,  "linked_page": "palmod_enderiophage.json",    "hover_text": "entity.alexsmobs.enderiophage" },
+    { "entity": "alexsmobs:bald_eagle",      "x": 100, "y": 118, "page": 0, "scale": 1.2, "entity_scale": 1.4,  "offset_x": 1,   "offset_y": 0,   "linked_page": "palmod_bald_eagle.json",      "hover_text": "entity.alexsmobs.bald_eagle" },
+    { "entity": "alexsmobs:spectre",         "x": 158, "y": 118, "page": 0, "scale": 1.2, "entity_scale": 0.5,  "offset_x": 4,   "offset_y": -13, "linked_page": "palmod_spectre.json",         "hover_text": "entity.alexsmobs.spectre" },
+    { "entity": "alexsmobs:sunbird",         "x": 240, "y": 118, "page": 0, "scale": 1.2, "entity_scale": 0.4,  "offset_x": -10, "offset_y": -10, "linked_page": "palmod_sunbird.json",         "hover_text": "entity.alexsmobs.sunbird" },
+    { "entity": "alexsmobs:mungus",          "x": 298, "y": 118, "page": 0, "scale": 1.2, "entity_scale": 1.2,  "offset_x": 1,   "offset_y": -1,  "linked_page": "palmod_mungus.json",          "hover_text": "entity.alexsmobs.mungus" },
+    { "entity": "alexsmobs:tasmanian_devil", "x": 356, "y": 118, "page": 0, "scale": 1.2, "entity_scale": 1.5,  "offset_x": -2,  "offset_y": -2,  "linked_page": "palmod_tasmanian_devil.json", "hover_text": "entity.alexsmobs.tasmanian_devil" },
+    { "entity": "alexsmobs:guster",          "x": 42,  "y": 150, "page": 0, "scale": 1.2, "entity_scale": 0.8,  "offset_x": -4,  "offset_y": -2,  "linked_page": "palmod_guster.json",          "hover_text": "entity.alexsmobs.guster" },
+    { "entity": "alexsmobs:mimicube",        "x": 100, "y": 150, "page": 0, "scale": 1.2, "entity_scale": 1.0,  "offset_x": 0,   "offset_y": -5,  "linked_page": "palmod_mimicube.json",        "hover_text": "entity.alexsmobs.mimicube" }
+  ],
+  "linked_page_buttons": [],
+  "images": [],
+  "item_renders": [],
+  "recipes": [],
+  "tabula_renders": [],
+  "entity_renders": []
+}

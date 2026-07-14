@@ -1,0 +1,8 @@
+<NEWLINE>
+<NEWLINE>
+<NEWLINE>
+PAL STATS - Health: 30 | Attack: 2
+<NEWLINE>
+PAL ABILITY - Item Magnet. It hoards ONE item type at a time into a tiny 2-slot pouch, then carries the haul off on its own - dropping it into a chest you have open (its first choice) or a nearby Kangaroo's pouch. It never waits to be full.
+<NEWLINE>
+CATCHING - Catch rate scales with sphere tier and the Leveling enchant, and rises steeply as the target is weakened. Only mobs with an enchanted shimmer can be caught - a Pal Compass points to the nearest one.

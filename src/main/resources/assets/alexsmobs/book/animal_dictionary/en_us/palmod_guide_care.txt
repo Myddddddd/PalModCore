@@ -1,0 +1,7 @@
+<NEWLINE>
+<NEWLINE>
+A summoned Pal grows Hungry and Moody over time.
+<NEWLINE>
+Place a Pal Feeder and stock it with food; hungry Pals visit it to eat. You can also feed a Pal by hand - right-click it while holding its food.
+<NEWLINE>
+A starving Pal slows down and stops working, so keep the feeder full. A released Pal stays in the world only while its sphere is in your hotbar or offhand.

@@ -1,0 +1,13 @@
+<NEWLINE>
+<NEWLINE>
+Spheres accept five special enchantments:
+<NEWLINE>
+Leveling raises the sphere's catch level.
+<NEWLINE>
+FastBall makes it fly faster.
+<NEWLINE>
+Infinite returns the sphere to you when it misses.
+<NEWLINE>
+Following makes a throw home in on the nearest catchable creature.
+<NEWLINE>
+Warp Tether makes a recall teleport you to the Pal.

@@ -1,0 +1,13 @@
+{
+  "parent": "kangaroo.json",
+  "text": "palmod_kangaroo.txt",
+  "title": "palmod.book.kangaroo_pal",
+  "linked_page_buttons": [],
+  "images": [],
+  "item_renders": [
+    { "item": "palmod:filled_pal_sphere", "x": 90, "y": 14, "page": 0, "scale": 2.0 }
+  ],
+  "recipes": [],
+  "tabula_renders": [],
+  "entity_renders": []
+}

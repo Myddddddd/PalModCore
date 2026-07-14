@@ -1,0 +1,13 @@
+{
+  "entity": "alexsmobs:leafcutter_ant",
+  "default_hunger_restore": 3.0,
+  "default_mood_bonus": 0.0,
+  "foods": [
+    { "item": "minecraft:sugar", "hunger_restore": 8.0, "mood_bonus": 3.0 },
+    { "item": "minecraft:honey_bottle", "hunger_restore": 20.0, "mood_bonus": 10.0 },
+    { "item": "minecraft:wheat", "hunger_restore": 5.0, "mood_bonus": 1.0 },
+    { "item": "minecraft:apple", "hunger_restore": 10.0, "mood_bonus": 4.0 },
+    { "item": "minecraft:melon_slice", "hunger_restore": 12.0, "mood_bonus": 5.0 },
+    { "item": "minecraft:sweet_berries", "hunger_restore": 7.0, "mood_bonus": 2.0 }
+  ]
+}

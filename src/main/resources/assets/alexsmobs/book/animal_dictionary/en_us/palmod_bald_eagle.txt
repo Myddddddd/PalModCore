@@ -1,0 +1,10 @@
+<NEWLINE>
+<NEWLINE>
+<NEWLINE>
+PAL STATS - Health: 16 | Attack: 5
+<NEWLINE>
+PAL ABILITY - Storm Charge aura. While it flies at your side well fed, your melee hits can call down lightning.
+<NEWLINE>
+WILD VARIANT - Storm dodger. Mid-air it dodges every sphere and answers with a lightning bolt on the thrower. Catch it while it is on the ground.
+<NEWLINE>
+CATCHING - Catch rate scales with sphere tier and the Leveling enchant, and rises steeply as the target is weakened. Only mobs with an enchanted shimmer can be caught - a Pal Compass points to the nearest one.
