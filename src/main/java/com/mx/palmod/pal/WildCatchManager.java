@@ -25,10 +25,8 @@ import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
-import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
 
 import java.util.List;
@@ -41,20 +39,11 @@ import java.util.UUID;
  *
  *  - "brawler":          stat buffs + their own combat_ability cast, wild
  *  - "skittish":         see/hear players from far away and flee (counter: sneak)
- *  - "op":               a signature counter-required move —
- *                          "time_stop"   freezes incoming spheres (counter: bait out
- *                                        the cast, throw during the cooldown)
- *                          "storm_dodge" dodges mid-air + strikes the thrower with
- *                                        lightning (counter: catch it grounded)
- *                          "blink"       teleports away from spheres (counter:
- *                                        WarpTether-enchanted sphere)
- *  - "predator_locked":  needs another pal first —
- *                          "damage_immune" only a pal with the counter_ability
- *                                          combat cast can hurt it
- *                          "shy_hide"      hides from players unless a passive
- *                                          owned pal is nearby to reassure it
- *                          "ambush_hide"   stays hidden until an owned pal wanders
- *                                          close, then pounces the bait
+ *  - "op" / "predator_locked": a signature counter-required move, keyed by
+ *                        wild.type and resolved via {@link WildDefenseRegistry}
+ *                        (time_stop/storm_dodge/blink/damage_immune/shy_hide/
+ *                        ambush_hide ship built in — third-party mods can
+ *                        register their own types with zero changes here)
  */
 public final class WildCatchManager {
 
@@ -149,12 +138,11 @@ public final class WildCatchManager {
         PalBehavior behavior = PalBehaviorManager.getBehavior(mob.getType());
         String category = behavior.getWildCategory();
 
-        if ("predator_locked".equals(category)) {
-            if ("shy_hide".equals(behavior.getWildType())) {
-                tickHide(mob, behavior, level, false);
-            } else if ("ambush_hide".equals(behavior.getWildType())) {
-                tickHide(mob, behavior, level, true);
-            }
+        // op/predator_locked "signature move" telegraphs, hide/reveal state, etc. —
+        // fully owned by whatever's registered under this mob's wild.type
+        WildDefenseRegistry.WildDefense defense = WildDefenseRegistry.get(behavior.getWildType());
+        if (defense != null) {
+            defense.tick(mob, behavior, level);
         }
 
         if (data.getBoolean(KEY_HIDDEN)) {
@@ -174,44 +162,6 @@ public final class WildCatchManager {
             mob.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 30,
                     behavior.getWildResistance(), false, false));
         }
-
-        // Time-stopper telegraphs a ready ZA WARUDO with dark portal motes;
-        // their absence is the catch window.
-        if ("op".equals(category) && "time_stop".equals(behavior.getWildType())
-                && level.getGameTime() >= data.getLong(KEY_ZW_READY_AT)) {
-            level.sendParticles(ParticleTypes.REVERSE_PORTAL,
-                    mob.getX(), mob.getY() + mob.getBbHeight() * 0.5, mob.getZ(), 3, 0.3, 0.3, 0.3, 0.02);
-        }
-    }
-
-    private static void tickHide(Mob mob, PalBehavior behavior, ServerLevel level, boolean ambush) {
-        CompoundTag data = mob.getPersistentData();
-        Player threat = nearestSurvivalPlayer(mob, behavior.getWildHideRange());
-        // Shy mobs need a PASSIVE pal to feel safe; ambushers pounce ANY bait pal
-        Mob lure = nearestOwnedPal(mob, behavior.getWildLureRange(), !ambush);
-
-        boolean shouldHide = threat != null && lure == null;
-        if (shouldHide) {
-            if (!data.getBoolean(KEY_HIDDEN)) {
-                data.putBoolean(KEY_HIDDEN, true);
-                // Glowing outlines render on invisible entities — strip the
-                // leftover shimmer or the hide is telegraphed through walls
-                mob.removeEffect(MobEffects.GLOWING);
-                level.sendParticles(ParticleTypes.POOF,
-                        mob.getX(), mob.getY() + 0.5, mob.getZ(), 12, 0.3, 0.3, 0.3, 0.05);
-            }
-            mob.setTarget(null);
-        } else {
-            if (data.getBoolean(KEY_HIDDEN)) {
-                data.putBoolean(KEY_HIDDEN, false);
-                mob.removeEffect(MobEffects.INVISIBILITY);
-                level.sendParticles(ParticleTypes.CLOUD,
-                        mob.getX(), mob.getY() + 0.5, mob.getZ(), 12, 0.3, 0.3, 0.3, 0.05);
-            }
-            if (ambush && lure != null) {
-                mob.setTarget(lure);
-            }
-        }
     }
 
     // ── Sphere interactions ───────────────────────────────────────────────
@@ -223,39 +173,18 @@ public final class WildCatchManager {
      */
     public static boolean tryZaWarudoIntercept(PalSphereProjectile sphere) {
         if (!(sphere.level() instanceof ServerLevel level)) return false;
-        // Skip the entity scan entirely unless some datapack defines a time-stopper
-        if (!PalBehaviorManager.hasWildTimeStop()) return false;
-        List<Mob> stoppers = level.getEntitiesOfClass(Mob.class,
+        // Skip the entity scan entirely unless some datapack defines an op-category defense
+        if (!PalBehaviorManager.hasWildOpDefense()) return false;
+        List<Mob> nearby = level.getEntitiesOfClass(Mob.class,
                 sphere.getBoundingBox().inflate(32),
                 mob -> hasWildPower(mob) && !com.mx.palmod.timestop.TimeStopManager.isFrozen(mob));
-        for (Mob mob : stoppers) {
+        for (Mob mob : nearby) {
             PalBehavior behavior = PalBehaviorManager.getBehavior(mob.getType());
-            if (!"op".equals(behavior.getWildCategory())
-                    || !"time_stop".equals(behavior.getWildType())) continue;
-            // The scan box above caps the effective radius at 32
-            double radius = Math.min(behavior.getWildOpRadius(), 32.0);
-            if (mob.distanceToSqr(sphere) > radius * radius) continue;
-            CompoundTag data = mob.getPersistentData();
-            if (level.getGameTime() < data.getLong(KEY_ZW_READY_AT)) continue;
-
-            data.putLong(KEY_ZW_READY_AT, level.getGameTime() + behavior.getWildOpCooldownTicks());
-            level.sendParticles(ParticleTypes.REVERSE_PORTAL,
-                    sphere.getX(), sphere.getY(), sphere.getZ(), 40, 0.6, 0.6, 0.6, 0.02);
-            level.playSound(null, sphere.blockPosition(),
-                    SoundEvents.ENDERMAN_TELEPORT, SoundSource.NEUTRAL, 1.2F, 0.5F);
-
-            // The frozen sphere clatters to the ground where time stopped it
-            ItemStack drop = sphere.getItem().copy();
-            drop.setCount(1);
-            ItemEntity itemEntity = new ItemEntity(level,
-                    sphere.getX(), sphere.getY(), sphere.getZ(), drop);
-            itemEntity.setDeltaMovement(Vec3.ZERO);
-            level.addFreshEntity(itemEntity);
-
-            message(sphere.getOwner(), "ZA WARUDO! Time froze your sphere — throw again while it recharges!");
-            blinkAway(mob);
-            sphere.discard();
-            return true;
+            WildDefenseRegistry.WildDefense defense = WildDefenseRegistry.get(behavior.getWildType());
+            if (defense == null) continue;
+            if (defense.onSphereNearby(mob, behavior, sphere, level)) {
+                return true;
+            }
         }
         return false;
     }
@@ -309,29 +238,17 @@ public final class WildCatchManager {
         // /kill, the void, and other invulnerability-bypassing sources must
         // still work, or the mob is un-removable even for admins
         if (event.getSource().is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY)) return false;
-        PalBehavior behavior = PalBehaviorManager.getBehavior(victim.getType());
-        if (!"predator_locked".equals(behavior.getWildCategory())
-                || !"damage_immune".equals(behavior.getWildType())) return false;
+        if (!(victim instanceof Mob mob) || !(victim.level() instanceof ServerLevel level)) return false;
 
-        Entity source = event.getSource().getEntity();
-        if (source instanceof Mob palMob && palMob.getPersistentData().contains("PalOwner")) {
-            String counter = behavior.getWildCounterAbility();
-            if (counter.isEmpty() || counter.equals(
-                    PalBehaviorManager.getBehavior(palMob.getType()).getCombatAbilityType())) {
-                return false; // the natural predator pierces the immunity
-            }
-        }
+        PalBehavior behavior = PalBehaviorManager.getBehavior(mob.getType());
+        WildDefenseRegistry.WildDefense defense = WildDefenseRegistry.get(behavior.getWildType());
+        if (defense == null) return false;
 
-        event.setCanceled(true);
-        if (victim.level() instanceof ServerLevel level) {
-            level.sendParticles(ParticleTypes.END_ROD,
-                    victim.getX(), victim.getY() + victim.getBbHeight() * 0.5, victim.getZ(),
-                    8, 0.4, 0.4, 0.4, 0.05);
+        boolean canceled = defense.onDamage(mob, behavior, event, level);
+        if (canceled) {
+            event.setCanceled(true);
         }
-        if (source instanceof ServerPlayer player) {
-            message(player, "Your attacks can't hurt it — a certain pal's power might...");
-        }
-        return true;
+        return canceled;
     }
 
     // ── Pal Compass ───────────────────────────────────────────────────────
@@ -415,37 +332,5 @@ public final class WildCatchManager {
         if (entity instanceof ServerPlayer player) {
             player.displayClientMessage(Component.literal(text), true);
         }
-    }
-
-    private static Player nearestSurvivalPlayer(Mob mob, double range) {
-        Player best = null;
-        double bestDistSqr = range * range;
-        for (Player player : mob.level().players()) {
-            if (player.isSpectator() || player.isCreative()) continue;
-            double distSqr = mob.distanceToSqr(player);
-            if (distSqr <= bestDistSqr) {
-                bestDistSqr = distSqr;
-                best = player;
-            }
-        }
-        return best;
-    }
-
-    private static Mob nearestOwnedPal(Mob mob, double range, boolean passiveOnly) {
-        List<Mob> pals = mob.level().getEntitiesOfClass(Mob.class,
-                mob.getBoundingBox().inflate(range),
-                other -> other != mob && other.getPersistentData().contains("PalOwner")
-                        && (!passiveOnly
-                            || !PalBehaviorManager.getBehavior(other.getType()).isAttackTarget()));
-        Mob best = null;
-        double bestDistSqr = Double.MAX_VALUE;
-        for (Mob pal : pals) {
-            double distSqr = mob.distanceToSqr(pal);
-            if (distSqr < bestDistSqr) {
-                bestDistSqr = distSqr;
-                best = pal;
-            }
-        }
-        return best;
     }
 }

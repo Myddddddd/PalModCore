@@ -76,6 +76,10 @@ public class PalSphereProjectile extends ThrowableItemProjectile {
         this.sphereLevel = level;
     }
 
+    public int getWarpTetherLevel() {
+        return warpTetherLevel;
+    }
+
     /** Read enchantment levels from the thrown item stack. */
     public void setEnchantments(ItemStack stack) {
         this.infiniteLevel  = EnchantmentHelper.getItemEnchantmentLevel(ModRegistries.ENCHANT_INFINITE.get(), stack);
@@ -219,24 +223,17 @@ public class PalSphereProjectile extends ThrowableItemProjectile {
             this.discard();
             return;
         }
-        // OP wild mobs answer spheres with their signature counter move —
+        // Wild mobs answer a direct sphere hit with their signature defense move —
         // unless a pal's time stop has them frozen (ZA WARUDO beats ZA WARUDO)
         com.mx.palmod.behavior.PalBehavior wildBehavior =
                 com.mx.palmod.behavior.PalBehaviorManager.getBehavior(target.getType());
-        if ("op".equals(wildBehavior.getWildCategory())
+        if (target instanceof net.minecraft.world.entity.Mob targetMob
                 && com.mx.palmod.pal.WildCatchManager.hasWildPower(target)
-                && !com.mx.palmod.timestop.TimeStopManager.isFrozen(target)) {
-            if ("blink".equals(wildBehavior.getWildType()) && warpTetherLevel <= 0) {
-                com.mx.palmod.pal.WildCatchManager.blinkAway(target);
-                com.mx.palmod.pal.WildCatchManager.message(getOwner(),
-                        "It blinked away! A WarpTether sphere could pin it down.");
-                discardOrReturn(false);
-                return;
-            }
-            if ("storm_dodge".equals(wildBehavior.getWildType()) && !target.onGround()) {
-                com.mx.palmod.pal.WildCatchManager.stormDodge(target, getOwner());
-                com.mx.palmod.pal.WildCatchManager.message(getOwner(),
-                        "It dodged mid-air and struck back! Catch it while it's grounded.");
+                && !com.mx.palmod.timestop.TimeStopManager.isFrozen(target)
+                && this.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+            com.mx.palmod.pal.WildDefenseRegistry.WildDefense defense =
+                    com.mx.palmod.pal.WildDefenseRegistry.get(wildBehavior.getWildType());
+            if (defense != null && defense.onSphereHit(targetMob, wildBehavior, this, serverLevel)) {
                 discardOrReturn(false);
                 return;
             }

@@ -344,7 +344,10 @@ Set under `wild.category`. Each has its own extra fields (all shown in the refer
     `lure_range`
   - `ambush_hide` — hidden until any owned Pal wanders within `hide_range`, then pounces
 
-Leave `wild` out entirely for a mob with no special defenses (plain catchable).
+Leave `wild` out entirely for a mob with no special defenses (plain catchable). The six values
+above are just the built-ins — `wild.type` is resolved through `WildDefenseRegistry` (see
+[Writing a code addon](#writing-a-code-addon)), so a new type is a registration call away, not
+a source edit.
 
 ### Food & trade tables
 
@@ -393,13 +396,55 @@ page.
 
 ### Writing a code addon
 
-For anything beyond data (a new worker job type, a new combat ability type, a new wild
-`op`/`predator_locked` subtype), depend on the `palmod` jar and hook the relevant registry —
-most of the extension points are simple `register("key", factory)` calls (see
-`WorkerGoalRegistry` for the pattern). Everything else — goal injection, interact routing,
-hunger/mood ticking — is centralized in `ForgeEvents` and reads straight from the same
-behavior JSON your datapack provides, so a new mob with a correct `pal_behaviors` entry needs
-**zero** Java to work.
+Every extension point below is a **standalone registration call** — add `palmod` as a compile
+dependency in your own mod's `build.gradle`, call `register(...)` once (from your mod
+constructor or `FMLCommonSetupEvent`), and you're done. Nothing here requires editing, forking,
+or PRing into Palmod itself — that's the whole point of these being registries instead of
+switch statements.
+
+**New station job** (`station_mode.worker_type`) — subclass `AbstractStationWorkerGoal`, then:
+
+```java
+WorkerGoalRegistry.register("fisher", (mob, stationPos, behavior) ->
+    new MyFisherGoal(mob, stationPos, behavior.getHarvestRadius(), behavior.getWanderRadius()));
+```
+
+**New combat ability** (`combat_ability.type`) — one lambda via `CombatAbilityRegistry`:
+
+```java
+CombatAbilityRegistry.register("poison_spit", (level, mob, target, behavior) -> {
+    target.addEffect(new MobEffectInstance(MobEffects.POISON, 100, 1));
+    target.hurt(level.damageSources().mobAttack(mob), behavior.getCombatDamage());
+});
+```
+
+**New wild defense** (`wild.type`, for `op`/`predator_locked` mobs) — implement whichever
+hooks of `WildDefenseRegistry.WildDefense` you need (all default to a no-op, so a simple dodge
+only needs `onSphereHit`):
+
+```java
+WildDefenseRegistry.register("smoke_bomb", new WildDefenseRegistry.WildDefense() {
+    @Override
+    public boolean onSphereHit(Mob mob, PalBehavior behavior, PalSphereProjectile sphere, ServerLevel level) {
+        level.sendParticles(ParticleTypes.LARGE_SMOKE, mob.getX(), mob.getY(), mob.getZ(), 40, 0.5, 0.5, 0.5, 0.05);
+        mob.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 60));
+        return true; // consumes the sphere — this throw is defended
+    }
+});
+```
+
+Reference `data/<ns>/pal_behaviors/*.json` with `"wild": {"category": "op", "type": "smoke_bomb", ...}`
+and it's live — no Palmod source touched.
+
+Everything else — goal injection, interact routing, hunger/mood ticking — is centralized in
+`ForgeEvents` and reads straight from the same behavior JSON your datapack provides, so a new
+mob with a correct `pal_behaviors` entry needs **zero** Java to work at all.
+
+One honest limitation: there's currently no separate published API artifact (see
+[`build.gradle`](build.gradle)'s `maven-publish` block, which just ships the whole jar) — an
+addon still compiles against the full `palmod` jar and its internal packages, not a slim public
+API. The registries above are stable extension points regardless; just don't reach into
+unrelated internals and expect them to stay put across versions.
 
 ---
 

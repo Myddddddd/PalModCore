@@ -24,7 +24,7 @@ public class PalBehaviorManager extends SimpleJsonResourceReloadListener {
     private static final Map<EntityType<?>, PalBehavior> BEHAVIORS = new HashMap<>();
     // Shared read-only fallback — getBehavior sits on per-tick hot paths
     private static final PalBehavior DEFAULT = new PalBehavior();
-    private static volatile boolean anyWildTimeStop = false;
+    private static volatile boolean anyWildOpDefense = false;
     public static final PalBehaviorManager INSTANCE = new PalBehaviorManager();
 
     private PalBehaviorManager() {
@@ -35,9 +35,13 @@ public class PalBehaviorManager extends SimpleJsonResourceReloadListener {
         return BEHAVIORS.getOrDefault(type, DEFAULT);
     }
 
-    /** True when any loaded behavior defines a wild time-stopper (op/time_stop). */
-    public static boolean hasWildTimeStop() {
-        return anyWildTimeStop;
+    /**
+     * True when any loaded behavior is an "op" category wild mob with a defense type
+     * set — used to skip PalSphereProjectile's in-flight interception scan entirely
+     * when nothing in the loaded datapacks could possibly react to it.
+     */
+    public static boolean hasWildOpDefense() {
+        return anyWildOpDefense;
     }
 
     @Override
@@ -279,8 +283,8 @@ public class PalBehaviorManager extends SimpleJsonResourceReloadListener {
                 LOGGER.error("Failed to parse Pal behavior config from '{}'", fileId, e);
             }
         }
-        anyWildTimeStop = BEHAVIORS.values().stream().anyMatch(
-                b -> "op".equals(b.getWildCategory()) && "time_stop".equals(b.getWildType()));
+        anyWildOpDefense = BEHAVIORS.values().stream().anyMatch(
+                b -> "op".equals(b.getWildCategory()) && !b.getWildType().isEmpty());
         LOGGER.info("Loaded {} Pal behaviors.", BEHAVIORS.size());
     }
 }
