@@ -26,3 +26,6 @@ forge*changelog.txt
 
 # bundled JDK (large, machine-specific)
 jdk17
+
+# internal project notes, not for the public repo
+CLAUDE.md

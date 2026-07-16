@@ -5,6 +5,27 @@ All notable changes to Palmod are documented in this file. Format loosely follow
 [SemVer](https://semver.org/) with a pre-`1.0.0` "beta" understanding — breaking changes to
 datapack schemas or save data may still happen between minor versions until `1.0.0`.
 
+## [0.8.1] - 2026-07-14
+
+### Added
+
+- **Addon extensibility overhaul.** Palmod is now built to be extended by third-party mods
+  without ever touching its source:
+  - `CombatAbilityRegistry` and `WildDefenseRegistry` replace the hardcoded
+    `combat_ability.type` switch and the `wild.type` (op/predator_locked) if-chains — a new
+    ability or defense is one `register(...)` call.
+  - `PalAbilityRegistry` converts the "one proactive power per mob" family (clone, fetch,
+    magnet, xp_collector, greedy_boom, warp_beacon, time_stop.on_summon) from scattered
+    if-chains into a single registry with an `appliesTo`/`onJoin`/`tick`/`onSummon`/
+    `forcedDeployMode` hook interface.
+  - New `com.mx.palmod.api.event` package: `PalCaughtEvent` (cancelable), `PalSummonedEvent`,
+    `PalRecalledEvent`, `PalDiedEvent`, `PalDeployedEvent` — standard Forge events any addon
+    can subscribe to for a pal's core lifecycle moments.
+  - Deliberately left alone: deploy mode (anchor/sentry) selection, `wild.category`, and
+    interact-click routing — dense, stable UX/dispatch logic where the regression risk
+    outweighed the addon payoff.
+- Mod logo (`palmod.png`, `mods.toml` `logoFile`).
+
 ## [0.8.0] - 2026-07-14
 
 First tracked release. Palmod's core loop — catch, own, care for, and deploy creatures as
