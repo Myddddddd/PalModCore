@@ -54,6 +54,9 @@ public class ForgeEvents {
         if (com.mx.palmod.timestop.TimeStopManager.isApplyingBurst()) return;
         // Wild damage-immune mobs shrug off everything but their natural predator
         if (com.mx.palmod.pal.WildCatchManager.cancelIfImmune(event)) return;
+        // Any landed hit suppresses a catchable wild mob's self-heal for a moment
+        // (no-op unless the victim is a live wild catchable).
+        com.mx.palmod.pal.WildCatchManager.stampHurt(victim);
         // Anti-loop: storm procs themselves deal lightning damage
         if (event.getSource().is(net.minecraft.world.damagesource.DamageTypes.LIGHTNING_BOLT)) return;
         if (!(event.getSource().getEntity() instanceof net.minecraft.server.level.ServerPlayer player)) return;
@@ -93,6 +96,7 @@ public class ForgeEvents {
         if (server != null) {
             com.mx.palmod.timestop.TimeStopManager.tick(server);
             com.mx.palmod.pal.TempBlockReverter.tick(server);
+            com.mx.palmod.hunt.HuntingNightManager.tick(server);
         }
     }
 
@@ -100,6 +104,7 @@ public class ForgeEvents {
     @SubscribeEvent
     public static void onServerStopping(net.minecraftforge.event.server.ServerStoppingEvent event) {
         com.mx.palmod.timestop.TimeStopManager.resumeAll(event.getServer());
+        com.mx.palmod.hunt.HuntingNightManager.reset();
     }
 
     @SubscribeEvent
@@ -149,6 +154,12 @@ public class ForgeEvents {
             if (!mob.getPersistentData().contains("PalOwner")
                     && !mob.getPersistentData().contains("SphereUUID")) {
                 com.mx.palmod.pal.WildCatchManager.onWildJoin(mob, stationBehavior);
+                // Hunting Night: every non-pal mob carries a dormant predator goal
+                // (top priority so it overrides fleeing) that only wakes while a hunt
+                // is active — self-gating, so there is nothing to remove at dawn.
+                if (mob instanceof net.minecraft.world.entity.PathfinderMob pathMob) {
+                    mob.goalSelector.addGoal(0, new com.mx.palmod.ai.HuntNightAttackGoal(pathMob));
+                }
             }
 
             if (mob.getPersistentData().contains("PalOwner")) {
@@ -382,6 +393,47 @@ public class ForgeEvents {
         }
     }
 
+    /**
+     * Well-fed regeneration: an owned pal at or above the well-fed hunger
+     * threshold slowly heals, faster the fuller and happier it is, paying a
+     * little hunger per HP. Called only for non-deployed pals on the 20-tick
+     * cadence, so the per-second rate is applied per call.
+     */
+    private static void tryWellFedHeal(Mob mob, PalBehavior behavior) {
+        // Never heal a mob that is dead or mid-death-animation: LivingTickEvent
+        // fires before tickDeath(), so healing a 0-HP pal here would revive it
+        // AFTER onLivingDeath already reverted its sphere — an orphaned corpse.
+        if (!mob.isAlive() || mob.isDeadOrDying()) return;
+        float threshold = (float) com.mx.palmod.Config.palHealWellFedThreshold;
+        float hunger = PalStats.getHunger(mob);
+        if (hunger < threshold) return;
+        if (mob.getHealth() >= mob.getMaxHealth()) return;
+
+        // Per-mob override (stats.heal_per_second); < 0 = use the config default.
+        float perSecond = behavior.getHealPerSecond() >= 0f
+                ? behavior.getHealPerSecond() : (float) com.mx.palmod.Config.palHealPerSecond;
+        if (perSecond <= 0f) return;
+
+        // Ramp with fullness above the threshold (25% at the threshold → 100% full)
+        // and with mood (50% at zero mood → 100% at max).
+        float ramp = threshold >= 100f ? 1f
+                : Math.min(1f, (hunger - threshold) / (100f - threshold));
+        float fedFactor = 0.25f + 0.75f * ramp;
+        float moodFactor = 0.5f + 0.5f * (PalStats.getMood(mob) / PalStats.MAX_MOOD);
+
+        float heal = perSecond * fedFactor * moodFactor;
+        heal = Math.min(heal, mob.getMaxHealth() - mob.getHealth());
+        if (heal <= 0f) return;
+
+        mob.setHealth(mob.getHealth() + heal);
+        PalStats.modifyHunger(mob, -(heal * (float) com.mx.palmod.Config.palHealHungerCostPerHp));
+        if (mob.level() instanceof net.minecraft.server.level.ServerLevel sl) {
+            sl.sendParticles(net.minecraft.core.particles.ParticleTypes.HEART,
+                    mob.getX(), mob.getY() + mob.getBbHeight() * 0.8, mob.getZ(),
+                    1, 0.3, 0.3, 0.3, 0.0);
+        }
+    }
+
     @SubscribeEvent
     public static void onLivingTick(net.minecraftforge.event.entity.living.LivingEvent.LivingTickEvent event) {
         LivingEntity entity = event.getEntity();
@@ -430,6 +482,20 @@ public class ForgeEvents {
         CompoundTag data = entity.getPersistentData();
         boolean isPal = data.contains("PalOwner");
 
+        // Hunt-spawned mobs vanish once the hunt ends (or when they load after
+        // dawn) — UNLESS a player has since bonded to one: a caught pal (PalOwner /
+        // SphereUUID / station), or a mob tamed by vanilla / Alex's Mobs (which
+        // extend TamableAnimal). Deleting a tamed pet at dawn would be data loss.
+        if (data.getBoolean("HuntNightSpawned") && !isPal
+                && !com.mx.palmod.hunt.HuntingNightManager.isActive()) {
+            boolean tamed = entity instanceof net.minecraft.world.entity.TamableAnimal ta && ta.isTame();
+            boolean palBound = data.contains("SphereUUID") || data.contains("WorkStationPos");
+            if (!tamed && !palBound) {
+                entity.discard();
+                return;
+            }
+        }
+
         // ── Hunger decay for all Pals ──────────────────────────────────
         if (isPal && entity instanceof Mob mob) {
             PalBehavior behavior = PalBehaviorManager.getBehavior(mob.getType());
@@ -449,6 +515,11 @@ public class ForgeEvents {
                 // Mood decay: per Minecraft day (24000 ticks) → per 20-tick call = moodDecayPerDay/1200
                 float moodDecayPerCall = behavior.getMoodDecayPerDay() / 1200f;
                 PalStats.modifyMood(mob, -moodDecayPerCall);
+
+                // Well-fed self-heal: a happy, well-fed pal slowly regenerates,
+                // burning a little extra hunger. Deployed/frozen pals are excluded
+                // (this whole block is gated on !deployed).
+                tryWellFedHeal(mob, behavior);
             }
 
             // Apply speed effects based on hunger state

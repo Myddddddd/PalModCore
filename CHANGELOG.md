@@ -5,6 +5,52 @@ All notable changes to Palmod are documented in this file. Format loosely follow
 [SemVer](https://semver.org/) with a pre-`1.0.0` "beta" understanding — breaking changes to
 datapack schemas or save data may still happen between minor versions until `1.0.0`.
 
+## [0.9.0] - 2026-07-20
+
+A survival-pressure release: the wild is denser and far deadlier, catching is a real
+weaken-then-catch fight (tanky mobs finally catchable), pals recover between fights, and nights
+can turn into a hunt. All numbers are config-driven in `palmod-common.toml` (restart to apply).
+
+### Added
+
+- **Well-fed self-heal for pals** (`ForgeEvents.tryWellFedHeal`). A non-deployed pal at or above
+  `palHealWellFedThreshold` (80) hunger regenerates health, scaling with fullness and mood, up to
+  `palHealPerSecond` (2) HP/s and burning `palHealHungerCostPerHp` (0.5) hunger per HP so it
+  self-limits. Per-mob override via `stats.heal_per_second`. Guarded against reviving a pal that is
+  mid-death-animation.
+- **Wild toughness for every catchable mob** (`WildCatchManager.applyWildToughness`). Catchable
+  wild mobs become bruisers: `wildHealthMultiplier` (×4.5 HP), `wildDamageMultiplier` (×2.0 attack
+  where present), and self-regen (`wildRegenFractionPerSecond`, suppressed `wildRegenSuppressTicks`
+  after a hit) — so the fight to weaken a mob is the real challenge. Stripped on capture, so a
+  tamed pal keeps its true base stats and never summons near-death.
+- **Hunting Night event** (`hunt.HuntingNightManager` + `ai.HuntNightAttackGoal`). Each night has a
+  `huntNightChance` (0.10) to become a hunt: a warning broadcasts ~5 min before dusk
+  (`huntWarningLeadTicks`), then every mob — even normally-passive ones — turns on players (passives
+  deal zombie-level `huntMinDamage`, attackers deal `×huntDamageMultiplier`), extra mobs spawn in
+  waves (`huntSpawnPool`) around players, and at dawn the hunt ends and its spawns despawn. Fully
+  config-driven (`huntEnabled` master switch).
+- **Biome-distributed spawns for the Alex's Mobs roster** (`data/palmod/forge/biome_modifier/`,
+  17× `forge:add_spawns`). The shipped roster is spread across biome groups (grizzly→taiga,
+  capuchin/gorilla/ant→jungle, orca→cold ocean, mungus→mushroom, End/Nether mobs in their realms,
+  …) at moderate weights so no region is empty and species must be sought out.
+- **Feeder crafting recipe** (`recipes/pal_feeder.json` — planks ring + hopper); the feeder was
+  previously uncraftable. (The work station stays deliberately pal-bound-only, never a standalone
+  item.)
+
+### Changed
+
+- **Catch formula rebuilt to a fraction-based curve** (`PalSphereProjectile`). Replaces the old
+  `level − maxHP + 0.7×%lost` subtraction — which made high-HP mobs (Warden, iron golem, …)
+  uncatchable even at ~0 HP — with `catchLowHpMaxRate × weaken^p`, where the toughness exponent `p`
+  grows with base max health. Guarantees: every mob reaches ~`catchLowHpMaxRate` (0.90) at/below
+  `catchFullRateHpFraction` (~5% HP), tankier mobs are strictly harder at mid HP but never a hard
+  0%, and full-HP mobs stay near-0% (weaken-first preserved). Charges wild-toughness-stripped base
+  HP so the ×4.5 buff never compounds catch difficulty. Verified in-game by catching a Warden.
+- **`catchableChance` default 0.40 → 0.65** — more of the wild is catchable.
+- **Cheaper sphere recipes**: `pal_sphere` = 4 iron + 1 redstone; `pal_sphere_mid` = 4 iron + 1
+  redstone block; `pal_sphere_advanced` = 8 iron + 1 redstone block (was 8-iron / gold / diamond
+  rings).
+
 ## [0.8.1] - 2026-07-14
 
 ### Added

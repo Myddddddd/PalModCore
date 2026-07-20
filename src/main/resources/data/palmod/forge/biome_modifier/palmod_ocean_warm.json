@@ -1,0 +1,7 @@
+{
+  "type": "forge:add_spawns",
+  "biomes": ["minecraft:warm_ocean", "minecraft:lukewarm_ocean", "minecraft:deep_lukewarm_ocean"],
+  "spawners": [
+    { "type": "alexsmobs:mantis_shrimp", "weight": 10, "minCount": 1, "maxCount": 3 }
+  ]
+}

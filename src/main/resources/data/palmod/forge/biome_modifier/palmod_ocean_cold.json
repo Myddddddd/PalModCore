@@ -1,0 +1,7 @@
+{
+  "type": "forge:add_spawns",
+  "biomes": ["minecraft:cold_ocean", "minecraft:deep_cold_ocean", "minecraft:frozen_ocean", "minecraft:deep_frozen_ocean", "minecraft:ocean", "minecraft:deep_ocean"],
+  "spawners": [
+    { "type": "alexsmobs:orca", "weight": 8, "minCount": 1, "maxCount": 2 }
+  ]
+}

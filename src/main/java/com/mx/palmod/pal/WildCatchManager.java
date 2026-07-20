@@ -51,8 +51,13 @@ public final class WildCatchManager {
     public static final String KEY_CATCHABLE   = "PalCatchable";
     public static final String KEY_HIDDEN      = "WildHidden";
     public static final String KEY_ZW_READY_AT = "WildZWReadyAt";
+    public static final String KEY_LAST_HURT   = "WildLastHurt";
 
+    // Per-mob brawler tank multiplier (from behavior JSON health_multiplier)
     private static final UUID WILD_HP_MODIFIER = UUID.fromString("8d1a3c52-6f0b-4b6e-9a4e-2f7c1d5b9e01");
+    // Global toughness applied to EVERY catchable mob (Config.wildHealthMultiplier / wildDamageMultiplier)
+    private static final UUID WILD_GLOBAL_HP_MODIFIER  = UUID.fromString("2b7e9c14-3d5a-4f81-8c6b-1a2f7d3e9b02");
+    private static final UUID WILD_GLOBAL_DMG_MODIFIER = UUID.fromString("6f4c1a83-9b2e-4d70-a5c1-8e3f2b7d1c03");
 
     private WildCatchManager() {}
 
@@ -87,19 +92,82 @@ public final class WildCatchManager {
         boolean catchable = mob.getRandom().nextDouble() < Config.catchableChance;
         data.putBoolean(KEY_CATCHABLE, catchable);
 
-        // Brawlers roll their stat buff once; the permanent modifier persists in
-        // the entity save so re-joins don't stack it.
-        if (catchable && "brawler".equals(behavior.getWildCategory())
-                && behavior.getWildHealthMultiplier() > 1.0f) {
-            AttributeInstance maxHealth = mob.getAttribute(Attributes.MAX_HEALTH);
-            if (maxHealth != null && maxHealth.getModifier(WILD_HP_MODIFIER) == null) {
+        if (catchable) {
+            applyWildToughness(mob, behavior);
+        }
+    }
+
+    /**
+     * Turns a freshly-rolled catchable mob into a tanky, hard-hitting bruiser:
+     * a global max-health multiplier (every catchable mob), a global attack-damage
+     * multiplier (only mobs that own an attack-damage attribute), and any per-mob
+     * brawler health multiplier stacked on top. All are permanent modifiers guarded
+     * against re-application so re-joins never re-stack. Catch ODDS are unaffected —
+     * {@link #getCatchMaxHealth} strips these back out so the catch math always
+     * charges the mob's true base health.
+     */
+    private static void applyWildToughness(Mob mob, PalBehavior behavior) {
+        AttributeInstance maxHealth = mob.getAttribute(Attributes.MAX_HEALTH);
+        if (maxHealth != null) {
+            double globalHp = Config.wildHealthMultiplier;
+            if (globalHp > 1.0 && maxHealth.getModifier(WILD_GLOBAL_HP_MODIFIER) == null) {
+                maxHealth.addPermanentModifier(new AttributeModifier(WILD_GLOBAL_HP_MODIFIER,
+                        "palmod.wild_global_health", globalHp - 1.0,
+                        AttributeModifier.Operation.MULTIPLY_TOTAL));
+            }
+            // Per-mob brawler toughness stacks on top of the global buff.
+            if ("brawler".equals(behavior.getWildCategory())
+                    && behavior.getWildHealthMultiplier() > 1.0f
+                    && maxHealth.getModifier(WILD_HP_MODIFIER) == null) {
                 maxHealth.addPermanentModifier(new AttributeModifier(WILD_HP_MODIFIER,
                         "palmod.wild_brawler_health",
                         behavior.getWildHealthMultiplier() - 1.0,
                         AttributeModifier.Operation.MULTIPLY_TOTAL));
-                mob.setHealth(mob.getMaxHealth());
             }
         }
+
+        AttributeInstance attackDamage = mob.getAttribute(Attributes.ATTACK_DAMAGE);
+        double globalDmg = Config.wildDamageMultiplier;
+        if (attackDamage != null && globalDmg > 1.0
+                && attackDamage.getModifier(WILD_GLOBAL_DMG_MODIFIER) == null) {
+            attackDamage.addPermanentModifier(new AttributeModifier(WILD_GLOBAL_DMG_MODIFIER,
+                    "palmod.wild_global_damage", globalDmg - 1.0,
+                    AttributeModifier.Operation.MULTIPLY_TOTAL));
+        }
+
+        // Start the buffed mob at full (buffed) health.
+        if (maxHealth != null) {
+            mob.setHealth(mob.getMaxHealth());
+        }
+    }
+
+    /**
+     * Removes the wild-toughness attribute modifiers and heals the mob to its true
+     * base max. Called at CATCH time (before the mob is serialized into the sphere)
+     * so a tamed pal carries its real base HP/damage — not the 4.5x/2x fight buffs —
+     * and doesn't summon near-death (mobs are caught weakened, and a tiny saved
+     * health against an inflated max would otherwise appear at ~1 HP on summon).
+     */
+    public static void stripWildToughness(LivingEntity entity) {
+        AttributeInstance maxHealth = entity.getAttribute(Attributes.MAX_HEALTH);
+        if (maxHealth != null) {
+            maxHealth.removePermanentModifier(WILD_GLOBAL_HP_MODIFIER);
+            maxHealth.removePermanentModifier(WILD_HP_MODIFIER);
+        }
+        AttributeInstance attackDamage = entity.getAttribute(Attributes.ATTACK_DAMAGE);
+        if (attackDamage != null) {
+            attackDamage.removePermanentModifier(WILD_GLOBAL_DMG_MODIFIER);
+        }
+        // Freshly tamed: come back at full (true base) health.
+        entity.setHealth(entity.getMaxHealth());
+    }
+
+    /** Records the tick a catchable wild mob last took damage (suppresses its regen). */
+    public static void stampHurt(LivingEntity entity) {
+        if (!(entity.level() instanceof ServerLevel level)) return;
+        if (!hasWildPower(entity)) return;
+        // gameTime 0 is our "never hurt" sentinel; clamp to 1 so it stays truthy.
+        entity.getPersistentData().putLong(KEY_LAST_HURT, Math.max(1L, level.getGameTime()));
     }
 
     // ── State queries ─────────────────────────────────────────────────────
@@ -124,10 +192,16 @@ public final class WildCatchManager {
      */
     public static float getCatchMaxHealth(LivingEntity target) {
         AttributeInstance maxHealth = target.getAttribute(Attributes.MAX_HEALTH);
-        if (maxHealth != null && maxHealth.getModifier(WILD_HP_MODIFIER) != null) {
-            return (float) maxHealth.getBaseValue();
-        }
-        return target.getMaxHealth();
+        if (maxHealth == null) return target.getMaxHealth();
+        // Charge the mob's TRUE (unbuffed) health so wild toughness never bleeds
+        // into catch odds — divide out our MULTIPLY_TOTAL toughness modifiers
+        // (global + per-mob brawler). Any innate modifiers the mob has are kept.
+        double effective = target.getMaxHealth();
+        AttributeModifier global = maxHealth.getModifier(WILD_GLOBAL_HP_MODIFIER);
+        if (global != null) effective /= (1.0 + global.getAmount());
+        AttributeModifier brawler = maxHealth.getModifier(WILD_HP_MODIFIER);
+        if (brawler != null) effective /= (1.0 + brawler.getAmount());
+        return (float) effective;
     }
 
     // ── 20-tick wild upkeep (glow, shimmer, hide/reveal, buffs) ───────────
@@ -144,6 +218,11 @@ public final class WildCatchManager {
         if (defense != null) {
             defense.tick(mob, behavior, level);
         }
+
+        // Tanky wild bruisers self-heal a slice of max HP each second unless they
+        // took damage recently — forcing a burst-then-catch loop rather than chip
+        // damage. Runs even while hidden (shy/ambush) so a stalled ambush recovers.
+        tickWildRegen(mob, level);
 
         if (data.getBoolean(KEY_HIDDEN)) {
             // Hidden: no glow, no shimmer, hold still
@@ -162,6 +241,26 @@ public final class WildCatchManager {
             mob.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 30,
                     behavior.getWildResistance(), false, false));
         }
+    }
+
+    /**
+     * Per-second wild self-heal (called from the 20-tick {@link #tickWild}).
+     * Heals a config fraction of max health, suppressed for a window after the
+     * mob last took damage. Disabled entirely when the fraction is 0.
+     */
+    private static void tickWildRegen(Mob mob, ServerLevel level) {
+        double frac = Config.wildRegenFractionPerSecond;
+        if (frac <= 0.0) return;
+        if (mob.getHealth() >= mob.getMaxHealth() || !mob.isAlive()) return;
+        long lastHurt = mob.getPersistentData().getLong(KEY_LAST_HURT);
+        if (lastHurt != 0L && level.getGameTime() - lastHurt < Config.wildRegenSuppressTicks) return;
+
+        float heal = (float) (mob.getMaxHealth() * frac);
+        if (heal <= 0f) return;
+        mob.setHealth(Math.min(mob.getMaxHealth(), mob.getHealth() + heal));
+        level.sendParticles(ParticleTypes.HAPPY_VILLAGER,
+                mob.getX(), mob.getY() + mob.getBbHeight() * 0.8, mob.getZ(),
+                2, 0.3, 0.3, 0.3, 0.0);
     }
 
     // ── Sphere interactions ───────────────────────────────────────────────

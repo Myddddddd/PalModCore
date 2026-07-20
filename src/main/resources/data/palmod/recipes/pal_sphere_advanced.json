@@ -1,12 +1,12 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    "DDD",
-    "DRD",
-    "DDD"
+    "III",
+    "IRI",
+    "III"
   ],
   "key": {
-    "D": { "item": "minecraft:diamond" },
+    "I": { "item": "minecraft:iron_ingot" },
     "R": { "item": "minecraft:redstone_block" }
   },
   "result": {

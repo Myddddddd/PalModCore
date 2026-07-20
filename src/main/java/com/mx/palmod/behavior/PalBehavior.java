@@ -96,6 +96,9 @@ public class PalBehavior {
     private float hungerDecayPerMinute = 5.0f;
     // moodDecayPerDay: how many mood points are lost per Minecraft day (24000 ticks)
     private float moodDecayPerDay = 2.0f;
+    // healPerSecond: HP a well-fed pal regenerates per second. -1 = use the
+    // global Config.palHealPerSecond default.
+    private float healPerSecond = -1.0f;
 
     // Per-action hunger costs (extensible map; keys match hunger_costs JSON keys)
     private final java.util.Map<String, Float> hungerCosts = new java.util.HashMap<>();
@@ -324,6 +327,9 @@ public class PalBehavior {
 
     public float getMoodDecayPerDay() { return moodDecayPerDay; }
     public void setMoodDecayPerDay(float v) { this.moodDecayPerDay = v; }
+
+    public float getHealPerSecond() { return healPerSecond; }
+    public void setHealPerSecond(float v) { this.healPerSecond = v; }
 
     /** Generic per-action hunger cost lookup; key matches the hunger_costs JSON key. */
     public float getHungerCost(String action, float defaultCost) {

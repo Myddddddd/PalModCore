@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "PPP",
+    "PHP",
+    "PPP"
+  ],
+  "key": {
+    "P": { "tag": "minecraft:planks" },
+    "H": { "item": "minecraft:hopper" }
+  },
+  "result": {
+    "item": "palmod:pal_feeder",
+    "count": 1
+  }
+}

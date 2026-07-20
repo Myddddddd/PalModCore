@@ -265,6 +265,7 @@ public class PalBehaviorManager extends SimpleJsonResourceReloadListener {
                     JsonObject statsJson = GsonHelper.getAsJsonObject(jsonObject, "stats");
                     if (statsJson.has("hunger_decay_per_minute")) behavior.setHungerDecayPerMinute(GsonHelper.getAsFloat(statsJson, "hunger_decay_per_minute"));
                     if (statsJson.has("mood_decay_per_day")) behavior.setMoodDecayPerDay(GsonHelper.getAsFloat(statsJson, "mood_decay_per_day"));
+                    if (statsJson.has("heal_per_second")) behavior.setHealPerSecond(GsonHelper.getAsFloat(statsJson, "heal_per_second"));
                 }
 
                 // Parse "hunger_costs" block — every key becomes a per-action cost

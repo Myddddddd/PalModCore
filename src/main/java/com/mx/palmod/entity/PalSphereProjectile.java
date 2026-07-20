@@ -239,18 +239,40 @@ public class PalSphereProjectile extends ThrowableItemProjectile {
             }
         }
 
-        // Brawlers charge their BASE health here, not the wild-buffed value
-        float maxHealth     = com.mx.palmod.pal.WildCatchManager.getCatchMaxHealth(target);
-        float currentHealth = target.getHealth();
-        float healthLostPct = ((maxHealth - currentHealth) / maxHealth) * 100f;
+        // ── Fraction-based catch curve ──────────────────────────────────────
+        // catchChance = lowHpMaxRate · weaken^p · catchRateMultiplier
+        //   hpFrac    = current / ACTUAL max  (what the player sees on the health bar)
+        //   weaken    = clamp((1 − hpFrac) / (1 − fullRateFrac), 0, 1)  → 1 at low HP
+        //   p         = (1 + K·log2(baseMaxHealth)) / ballPower
+        //   ballPower = 1 + perLevel·(effectiveLevel − 1)
+        // A tankier mob (bigger baseMaxHealth) gets a larger p, so weaken^p is strictly
+        // smaller at every mid-HP point → always harder — yet every mob converges to
+        // lowHpMaxRate at/below fullRateFrac and to ~0 at full HP, and nothing is ever a
+        // hard 0% once weakened. baseMaxHealth is the wild-toughness-STRIPPED health so
+        // the 4.5x fight buff never compounds catch difficulty; the fraction uses the
+        // ACTUAL (possibly buffed) max so "under ~5% of the health bar" reads correctly.
+        float baseMaxHealth   = com.mx.palmod.pal.WildCatchManager.getCatchMaxHealth(target);
+        float actualMaxHealth = target.getMaxHealth();
+        float currentHealth   = target.getHealth();
+        float hpFrac = actualMaxHealth > 0f
+                ? Math.max(0f, Math.min(1f, currentHealth / actualMaxHealth)) : 0f;
 
         // Effective level including Leveling enchant bonus
         int effectiveLevel = sphereLevel + LevelingEnchantment.getLevelBonus(levelingLevel);
 
-        // rate = effectiveLevel - maxHealth + 0.7 * percentHealthLost
-        // (full-HP mobs are deliberately near-uncatchable — weaken the target first)
-        float rate = effectiveLevel - maxHealth + 0.7f * healthLostPct;
-        float catchChance = Math.max(0f, Math.min(100f, rate)) / 100f;
+        double log2MaxHp = Math.log(Math.max(2f, baseMaxHealth)) / Math.log(2.0);
+        double pRaw = 1.0 + com.mx.palmod.Config.catchToughnessWeight * log2MaxHp;
+        double ballPower = 1.0 + com.mx.palmod.Config.catchBallPowerPerLevel * (effectiveLevel - 1);
+        double p = pRaw / Math.max(1.0e-4, ballPower);
+
+        double fullRateFrac = com.mx.palmod.Config.catchFullRateHpFraction;
+        double weaken = (1.0 - hpFrac) / Math.max(1.0e-4, 1.0 - fullRateFrac);
+        weaken = Math.max(0.0, Math.min(1.0, weaken));
+
+        double chance = com.mx.palmod.Config.catchLowHpMaxRate
+                * Math.pow(weaken, p)
+                * com.mx.palmod.Config.catchRateMultiplier;
+        float catchChance = (float) Math.max(0.0, Math.min(1.0, chance));
 
         boolean catchRolled = this.random.nextFloat() <= catchChance;
         boolean catchVetoed = catchRolled && getOwner() instanceof Player catcher
@@ -259,6 +281,10 @@ public class PalSphereProjectile extends ThrowableItemProjectile {
 
         if (catchRolled && !catchVetoed) {
             // ── Success ──
+            // Shed the wild-toughness fight buffs and heal to true base max BEFORE
+            // serializing, so the tamed pal carries real base stats and never
+            // summons near-death (mobs are caught weakened).
+            com.mx.palmod.pal.WildCatchManager.stripWildToughness(target);
             CompoundTag entityData = new CompoundTag();
             if (target.saveAsPassenger(entityData)) {
                 // Determine which filled sphere item to give back based on the item that was thrown

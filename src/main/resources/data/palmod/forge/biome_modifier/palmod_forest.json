@@ -1,0 +1,10 @@
+{
+  "type": "forge:add_spawns",
+  "biomes": "#minecraft:is_forest",
+  "spawners": [
+    { "type": "alexsmobs:crow", "weight": 12, "minCount": 1, "maxCount": 2 },
+    { "type": "alexsmobs:raccoon", "weight": 10, "minCount": 1, "maxCount": 2 },
+    { "type": "alexsmobs:tasmanian_devil", "weight": 8, "minCount": 1, "maxCount": 1 },
+    { "type": "alexsmobs:grizzly_bear", "weight": 5, "minCount": 1, "maxCount": 1 }
+  ]
+}

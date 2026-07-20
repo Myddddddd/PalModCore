@@ -1,0 +1,8 @@
+{
+  "type": "forge:add_spawns",
+  "biomes": ["minecraft:desert"],
+  "spawners": [
+    { "type": "alexsmobs:guster", "weight": 25, "minCount": 1, "maxCount": 2 },
+    { "type": "alexsmobs:kangaroo", "weight": 8, "minCount": 1, "maxCount": 2 }
+  ]
+}
