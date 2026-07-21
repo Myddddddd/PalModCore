@@ -29,3 +29,6 @@ jdk17
 
 # internal project notes, not for the public repo
 CLAUDE.md
+
+# local dev skill, not for the public repo
+.claude/skills/palmod-dev/

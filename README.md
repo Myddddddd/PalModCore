@@ -7,7 +7,7 @@
 ![Version](https://img.shields.io/badge/version-0.8.1-blue)
 [![Minecraft](https://img.shields.io/badge/minecraft-1.20.1-brightgreen)](https://www.minecraft.net/)
 [![Forge](https://img.shields.io/badge/forge-47.4.10%2B-orange)](https://files.minecraftforge.net/)
-[![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-lightgrey)](LICENSE.txt)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 > **Status: 0.8.1 — beta.** Core loop (catch → own → summon → work/fight/assist) is
 > feature-complete and server-tested. A few systems are still flagged untested-in-game or have
@@ -495,7 +495,7 @@ unrelated internals and expect them to stay put across versions.
 ## Building from source
 
 ```powershell
-git clone https://github.com/Myddddddd/PalModCore.git
+git clone https://github.com/LynxMyth/PalModCore.git
 cd PalModCore
 .\gradlew.bat build
 ```
@@ -519,13 +519,11 @@ and can take a few minutes. See [README.txt](README.txt) for IDE-specific run-co
   orca riding, fireball/water-burst casts, and all client-only visuals (egg tint, glints,
   dictionary rendering).
 
-Full list with technical detail lives in [CLAUDE.md](CLAUDE.md).
-
 ---
 
 ## Credits
 
 Built on [Minecraft Forge](https://files.minecraftforge.net/) for Minecraft 1.20.1. Designed
 to run alongside [Alex's Mobs](https://www.curseforge.com/minecraft/mc-mods/alexs-mobs) and
-[Citadel](https://www.curseforge.com/minecraft/mc-mods/citadel) — see [CREDITS.txt](CREDITS.txt)
-for full attribution. All rights reserved — see [LICENSE.txt](LICENSE.txt).
+[Citadel](https://www.curseforge.com/minecraft/mc-mods/citadel). Licensed under the MIT
+License — see [LICENSE](LICENSE).

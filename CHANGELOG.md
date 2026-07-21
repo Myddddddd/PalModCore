@@ -132,7 +132,7 @@ real-time companions — is feature-complete on Forge 1.20.1 against Alex's Mobs
 
 ### Known issues
 
-See [README.md § Known issues](README.md#known-issues) and [CLAUDE.md](CLAUDE.md) for the full,
+See [README.md § Known issues](README.md#known-issues) for the full,
 continually-updated technical list. Highlights: some Alex's Mobs creatures with strong native
 AI (elephant, tasmanian devil) partially resist hand-feed/target routing; flying mobs are hard
 to catch with a thrown sphere; the wild-catch roll currently fires on bred/egg-hatched mobs too,
