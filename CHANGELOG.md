@@ -5,6 +5,34 @@ All notable changes to Palmod are documented in this file. Format loosely follow
 [SemVer](https://semver.org/) with a pre-`1.0.0` "beta" understanding — breaking changes to
 datapack schemas or save data may still happen between minor versions until `1.0.0`.
 
+## [0.9.1] - 2026-07-21
+
+A visual/feel update for catching, plus two catch-result fixes.
+
+### Added
+
+- **Pokéball-style catch animation** (`PalSphereProjectile` capture state machine). A sphere that
+  hits a catchable mob no longer resolves instantly: the mob shrinks into the ball, the ball
+  wobbles in place for **0.3s per 10% catch chance**, then reveals the result — on success the mob
+  vanishes and a filled sphere pops out where the mob was; on failure the mob grows back to full
+  size and the empty ball drops (50% destroyed, 5% with Infinite). The mob-shrink is rendered
+  client-side (`client.PalCaptureClient`, `RenderLivingEvent`) off the projectile's synced capture
+  state — no custom packet. The mob is frozen and damage-immune during the animation, with a
+  safety net (`ForgeEvents`) that un-freezes any capture orphaned by a chunk unload.
+- **3D voxel mesh for the thrown sphere** (`client.PalSphereMeshRenderer` + `PalSphereMeshClient`).
+  The thrown ball now renders as its `PalsphereMesh` OBJ model (Level1/2/3 by sphere tier, via
+  Forge's `forge:obj` loader) instead of the flat item billboard. Client-side; tuning constants
+  (scale / vertical center / spin) live in the renderer.
+
+### Changed
+
+- **A caught pal now keeps the wild mob's full stats and comes out at full health.** `resolveSuccess`
+  heals the mob to its (buffed) max before serializing instead of stripping the wild toughness to
+  base — so the pal's max HP equals the mob's and it never summons near-death.
+  (`WildCatchManager.stripWildToughness` still exists but is no longer called.)
+- **Infinite enchant returns the ball 100% on a SUCCESSFUL catch** — the pal is in the filled
+  sphere and the empty ball goes back to the catcher, so an Infinite sphere is effectively reusable.
+
 ## [0.9.0] - 2026-07-20
 
 A survival-pressure release: the wild is denser and far deadlier, catching is a real

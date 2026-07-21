@@ -50,6 +50,9 @@ public class ForgeEvents {
     public static void onLivingHurt(net.minecraftforge.event.entity.living.LivingHurtEvent event) {
         LivingEntity victim = event.getEntity();
         if (victim.level().isClientSide()) return;
+        // A mob mid-capture (shrunk inside a wobbling sphere) is shielded from all
+        // damage so the animation can resolve cleanly.
+        if (victim.getPersistentData().getBoolean("PalCapturing")) { event.setCanceled(true); return; }
         // The resume burst must not re-trigger procs or re-bank itself
         if (com.mx.palmod.timestop.TimeStopManager.isApplyingBurst()) return;
         // Wild damage-immune mobs shrug off everything but their natural predator
@@ -494,6 +497,15 @@ public class ForgeEvents {
                 entity.discard();
                 return;
             }
+        }
+
+        // Safety net: an orphaned capture (the sphere vanished mid-animation, e.g.
+        // a chunk unload) must not leave a mob frozen (NoAi) forever.
+        if (data.getBoolean("PalCapturing")
+                && entity.level().getGameTime() > data.getLong("PalCaptureUntil")) {
+            data.remove("PalCapturing");
+            data.remove("PalCaptureUntil");
+            if (entity instanceof Mob orphan) orphan.setNoAi(false);
         }
 
         // ── Hunger decay for all Pals ──────────────────────────────────

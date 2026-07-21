@@ -1,0 +1,6 @@
+{
+  "loader": "forge:obj",
+  "model": "palmod:models/entity/pal_sphere/level1.obj",
+  "flip_v": true,
+  "automatic_culling": false
+}

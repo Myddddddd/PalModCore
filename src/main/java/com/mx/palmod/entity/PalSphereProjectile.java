@@ -25,6 +25,10 @@ import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.network.NetworkHooks;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.world.entity.Mob;
 
 import java.util.Comparator;
 import java.util.List;
@@ -50,6 +54,32 @@ public class PalSphereProjectile extends ThrowableItemProjectile {
     // Summoning state
     private boolean isSummoning = false;
     private UUID summonSphereUUID = null;
+
+    // ── Capture animation (Pokéball-style: shrink-in → wobble → resolve) ──
+    // Synced to clients so the render hook can scale the captured mob; the
+    // client reads these off the (auto-synced) projectile.
+    private static final EntityDataAccessor<Integer> DATA_CAPTURE_MOB_ID =
+            SynchedEntityData.defineId(PalSphereProjectile.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Float> DATA_CAPTURE_PROGRESS =
+            SynchedEntityData.defineId(PalSphereProjectile.class, EntityDataSerializers.FLOAT);
+
+    private static final int SHRINK_TICKS  = 8;   // mob shrinks into the ball
+    private static final int RELEASE_TICKS = 8;   // (fail) mob grows back out
+
+    // capturePhase: 0 none, 1 shrinking, 2 wobbling, 3 releasing (fail)
+    private int capturePhase = 0;
+    private int captureTicks = 0;
+    private int wobbleTicksTotal = 0;      // 0.3s per 10% catch chance
+    private int nextWobbleAt = 0;
+    private boolean captureSuccess = false;
+    private int captureEffectiveLevel = 1;
+    private int captureMobId = -1;
+    private boolean wasTargetNoAi = false;
+    private double baseX, baseY, baseZ;
+    private double hopOffset = 0, hopVel = 0;
+    // Set on load if the world saved mid-capture — the ball resolves to a harmless
+    // drop next tick (the frozen mob is recovered by the ForgeEvents safety net).
+    private boolean captureGhost = false;
 
     // ── Constructors ─────────────────────────────────────────────────────
 
@@ -115,6 +145,11 @@ public class PalSphereProjectile extends ThrowableItemProjectile {
         if (summonSphereUUID != null) {
             pTag.putUUID("SummonSphereUUID", summonSphereUUID);
         }
+        // A capture in progress can't be meaningfully resumed across a reload
+        // (entity ids aren't stable); mark it so tick() cleans up the ghost.
+        if (capturePhase != 0) {
+            pTag.putBoolean("PalCaptureGhost", true);
+        }
     }
 
     @Override
@@ -132,13 +167,55 @@ public class PalSphereProjectile extends ThrowableItemProjectile {
         if (pTag.contains("SummonSphereUUID")) {
             summonSphereUUID = pTag.getUUID("SummonSphereUUID");
         }
+        captureGhost = pTag.getBoolean("PalCaptureGhost");
     }
+
+    // ── Synced capture state (read client-side by the render hook) ────────
+
+    @Override
+    protected void defineSynchedData() {
+        super.defineSynchedData();
+        this.entityData.define(DATA_CAPTURE_MOB_ID, -1);
+        this.entityData.define(DATA_CAPTURE_PROGRESS, 0.0f);
+    }
+
+    /** Entity id of the mob currently shrinking into this ball, or -1. */
+    public int getCaptureMobId() { return this.entityData.get(DATA_CAPTURE_MOB_ID); }
+
+    /** 0 = full size, 1 = fully inside the ball. Client scale = 1 − this. */
+    public float getCaptureProgress() { return this.entityData.get(DATA_CAPTURE_PROGRESS); }
 
     // ── Tick (Following homing logic) ─────────────────────────────────────
 
     @Override
     public void tick() {
+        // Ghost left by a save mid-capture: the frozen mob is recovered by the
+        // ForgeEvents safety net; just drop the (empty) sphere and remove the ball.
+        if (captureGhost) {
+            captureGhost = false;
+            if (!level().isClientSide) {
+                ItemStack s = getItem().copy();
+                s.setCount(1);
+                dropItem(s, this);
+                discard();
+            }
+            return;
+        }
+
+        // Once a mob is being captured the ball freezes in place and runs the
+        // capture animation instead of normal projectile physics (both sides —
+        // the client reads the synced mob id so it stops flying too).
+        if (capturePhase != 0 || this.entityData.get(DATA_CAPTURE_MOB_ID) >= 0) {
+            tickCapture();
+            return;
+        }
+
         super.tick();
+
+        // A capture that just BEGAN inside super.tick() (onHitEntity → beginCapture)
+        // must not also run ZW-intercept/homing this tick — that could discard the
+        // ball and strand the frozen mob.
+        if (capturePhase != 0) return;
 
         // A wild time-stopper (ZA WARUDO) freezes catching spheres in its radius
         if (!level().isClientSide && !isSummoning && (tickCount & 1) == 0
@@ -201,6 +278,13 @@ public class PalSphereProjectile extends ThrowableItemProjectile {
 
         if (target.getPersistentData().contains("PalOwner")) {
             // Already tamed — can't catch
+            spawnSmokeAt(target);
+            discardOrReturn(false);
+            return;
+        }
+
+        // Already shrinking inside another ball — a second sphere just bounces off.
+        if (target.getPersistentData().getBoolean("PalCapturing")) {
             spawnSmokeAt(target);
             discardOrReturn(false);
             return;
@@ -279,44 +363,188 @@ public class PalSphereProjectile extends ThrowableItemProjectile {
                 && net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(
                         new com.mx.palmod.api.event.PalCaughtEvent(target, catcher.getUUID(), getItem(), effectiveLevel));
 
-        if (catchRolled && !catchVetoed) {
-            // ── Success ──
-            // Shed the wild-toughness fight buffs and heal to true base max BEFORE
-            // serializing, so the tamed pal carries real base stats and never
-            // summons near-death (mobs are caught weakened).
-            com.mx.palmod.pal.WildCatchManager.stripWildToughness(target);
+        // The outcome is decided now but REVEALED after the shrink-in + wobble
+        // animation (0.3s of wobble per 10% catch chance). Success → the mob is
+        // stored and a filled sphere pops out; failure → the mob grows back and
+        // the empty sphere drops (see resolveCapture*).
+        beginCapture(target, catchChance, catchRolled && !catchVetoed, effectiveLevel);
+    }
+
+    // ── Capture animation ─────────────────────────────────────────────────
+
+    /** Suck the mob into the ball and start the wobble timer. */
+    private void beginCapture(LivingEntity target, float catchChance, boolean success, int effectiveLevel) {
+        this.captureMobId = target.getId();
+        this.captureSuccess = success;
+        this.captureEffectiveLevel = effectiveLevel;
+        this.wobbleTicksTotal = Math.max(6, Math.round(catchChance * 60f)); // 6 ticks (0.3s) per 10%
+        this.capturePhase = 1;
+        this.captureTicks = 0;
+        // Anchor the ball AT the mob (not the throw origin — the projectile hits on
+        // its first tick before its own position updates), so the wobble and the
+        // filled sphere happen where the mob was, not at the player's feet.
+        this.baseX = target.getX();
+        this.baseY = target.getY();
+        this.baseZ = target.getZ();
+        this.setPos(baseX, baseY, baseZ);
+        this.setDeltaMovement(Vec3.ZERO);
+        this.setNoGravity(true);
+        this.entityData.set(DATA_CAPTURE_MOB_ID, target.getId());
+        this.entityData.set(DATA_CAPTURE_PROGRESS, 0f);
+
+        if (target instanceof Mob mob) {
+            this.wasTargetNoAi = mob.isNoAi();
+            mob.setNoAi(true);
+            mob.getNavigation().stop();
+        }
+        target.setDeltaMovement(Vec3.ZERO);
+        // Frozen + shielded from damage while inside the ball (see ForgeEvents).
+        target.getPersistentData().putBoolean("PalCapturing", true);
+        target.getPersistentData().putLong("PalCaptureUntil",
+                level().getGameTime() + SHRINK_TICKS + wobbleTicksTotal + RELEASE_TICKS + 40L);
+
+        if (level() instanceof ServerLevel sl) {
+            sl.sendParticles(ParticleTypes.PORTAL,
+                    target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(),
+                    24, 0.3, 0.4, 0.3, 0.4);
+            sl.playSound(null, baseX, baseY, baseZ,
+                    SoundEvents.ENDER_EYE_LAUNCH, SoundSource.NEUTRAL, 0.7F, 1.4F);
+        }
+    }
+
+    private void tickCapture() {
+        // Client side: just hold position (server-synced) and let the render hook
+        // read the synced progress — no server logic here.
+        if (level().isClientSide) return;
+
+        LivingEntity target = (captureMobId >= 0 && level().getEntity(captureMobId) instanceof LivingEntity le)
+                ? le : null;
+
+        // Keep the captured mob pinned; if it vanished (e.g. /kill), the catch fails.
+        if (capturePhase != 3) {
+            if (target == null || !target.isAlive()) {
+                resolveFailure(null);
+                return;
+            }
+            target.setDeltaMovement(Vec3.ZERO);
+            if (target instanceof Mob m) m.getNavigation().stop();
+        }
+
+        captureTicks++;
+        switch (capturePhase) {
+            case 1 -> { // shrinking in
+                this.entityData.set(DATA_CAPTURE_PROGRESS, Math.min(1f, (float) captureTicks / SHRINK_TICKS));
+                if (captureTicks >= SHRINK_TICKS) {
+                    this.entityData.set(DATA_CAPTURE_PROGRESS, 1f);
+                    capturePhase = 2;
+                    captureTicks = 0;
+                    nextWobbleAt = 8;
+                }
+            }
+            case 2 -> { // wobbling (struggle)
+                if (captureTicks >= nextWobbleAt) {
+                    nextWobbleAt = captureTicks + 14;
+                    doWobble();
+                }
+                if (captureTicks >= wobbleTicksTotal) {
+                    if (captureSuccess) { resolveSuccess(target); return; }
+                    capturePhase = 3;
+                    captureTicks = 0;
+                }
+            }
+            case 3 -> { // releasing (fail): mob grows back out
+                this.entityData.set(DATA_CAPTURE_PROGRESS, Math.max(0f, 1f - (float) captureTicks / RELEASE_TICKS));
+                if (captureTicks >= RELEASE_TICKS) { resolveFailure(target); return; }
+            }
+        }
+
+        // Bounce/hop offset so the ball visibly wobbles on the ground.
+        hopOffset += hopVel;
+        hopVel -= 0.06;
+        if (hopOffset <= 0) { hopOffset = 0; hopVel = 0; }
+        this.setPos(baseX, baseY + hopOffset, baseZ);
+    }
+
+    private void doWobble() {
+        hopVel = 0.22;
+        if (level() instanceof ServerLevel sl) {
+            sl.sendParticles(ParticleTypes.CRIT, baseX, baseY + 0.2, baseZ, 5, 0.15, 0.1, 0.15, 0.05);
+            sl.playSound(null, baseX, baseY, baseZ,
+                    SoundEvents.WOODEN_BUTTON_CLICK_ON, SoundSource.NEUTRAL, 0.8F, 0.7F);
+        }
+    }
+
+    /** Timer done, catch succeeded: store the mob and pop the filled sphere out. */
+    private void resolveSuccess(LivingEntity target) {
+        this.entityData.set(DATA_CAPTURE_MOB_ID, -1);
+        if (target != null) {
+            target.getPersistentData().remove("PalCapturing");
+            target.getPersistentData().remove("PalCaptureUntil");
+            if (target instanceof Mob m) m.setNoAi(wasTargetNoAi);
+            // The caught pal keeps its full wild stats — heal it to its (buffed) max
+            // so its max HP equals the mob's and it comes out at full health.
+            target.setHealth(target.getMaxHealth());
             CompoundTag entityData = new CompoundTag();
             if (target.saveAsPassenger(entityData)) {
-                // Determine which filled sphere item to give back based on the item that was thrown
-                Item filledItem = ModRegistries.FILLED_PAL_SPHERE.get();
-                ItemStack filledSphere = new ItemStack(filledItem);
+                ItemStack filledSphere = new ItemStack(ModRegistries.FILLED_PAL_SPHERE.get());
                 CompoundTag tag = filledSphere.getOrCreateTag();
                 tag.put("CapturedEntity", entityData);
                 tag.putUUID("SphereUUID", UUID.randomUUID());
                 tag.putBoolean("IsReleased", false);
-                tag.putInt("SphereLevel", effectiveLevel);
-                if (warpTetherLevel > 0) {
-                    // Caught with a WarpTether sphere: recalling the summoned pal
-                    // will teleport the owner to its position
-                    tag.putBoolean("WarpOnRecall", true);
-                }
+                tag.putInt("SphereLevel", captureEffectiveLevel);
+                if (warpTetherLevel > 0) tag.putBoolean("WarpOnRecall", true);
 
-                dropItem(filledSphere, target);
+                ItemEntity ie = new ItemEntity(level(), baseX, baseY + 0.3, baseZ, filledSphere);
+                ie.setDeltaMovement(0, 0.35, 0); // the ball "pops up" then the item drops
+                ie.setPickUpDelay(10);
+                level().addFreshEntity(ie);
                 target.discard();
 
-                if (this.level() instanceof ServerLevel sl) {
-                    sl.sendParticles(ParticleTypes.HAPPY_VILLAGER,
-                            target.getX(), target.getY() + 1, target.getZ(), 15, 0.5, 0.5, 0.5, 0.1);
-                    sl.playSound(null, target.getX(), target.getY(), target.getZ(),
-                            SoundEvents.PLAYER_LEVELUP, SoundSource.NEUTRAL, 1.0F, 1.0F);
+                // Infinite: the thrown ball itself is returned (100%) on a successful
+                // catch, so it can be reused — the pal is in the filled sphere, the
+                // empty ball comes back to the catcher.
+                if (infiniteLevel > 0 && getOwner() instanceof Player player) {
+                    ItemStack ball = getItem().copy();
+                    ball.setCount(1);
+                    if (!player.getInventory().add(ball)) {
+                        level().addFreshEntity(new ItemEntity(level(), baseX, baseY + 0.3, baseZ, ball));
+                    }
                 }
             }
-            this.discard();
-        } else {
-            // ── Failure ──
-            spawnSmokeAt(target);
-            discardOrReturn(true);
         }
+        if (level() instanceof ServerLevel sl) {
+            sl.sendParticles(ParticleTypes.HAPPY_VILLAGER, baseX, baseY + 0.5, baseZ, 20, 0.4, 0.4, 0.4, 0.15);
+            sl.sendParticles(ParticleTypes.END_ROD, baseX, baseY + 0.5, baseZ, 12, 0.2, 0.3, 0.2, 0.08);
+            sl.playSound(null, baseX, baseY, baseZ, SoundEvents.PLAYER_LEVELUP, SoundSource.NEUTRAL, 1.0F, 1.2F);
+        }
+        capturePhase = 0;
+        this.discard();
+    }
+
+    /** Timer done, catch failed: mob is already grown back; drop the empty sphere. */
+    private void resolveFailure(LivingEntity target) {
+        this.entityData.set(DATA_CAPTURE_MOB_ID, -1);
+        if (target != null) {
+            target.getPersistentData().remove("PalCapturing");
+            target.getPersistentData().remove("PalCaptureUntil");
+            if (target instanceof Mob m) m.setNoAi(wasTargetNoAi);
+        }
+        if (level() instanceof ServerLevel sl) {
+            sl.sendParticles(ParticleTypes.SMOKE, baseX, baseY + 0.4, baseZ, 12, 0.3, 0.3, 0.3, 0.02);
+            sl.playSound(null, baseX, baseY, baseZ, SoundEvents.GLASS_BREAK, SoundSource.NEUTRAL, 0.9F, 1.0F);
+        }
+        // Empty sphere drops to the ground; 50% chance it's destroyed (5% with Infinite).
+        float destroyChance = infiniteLevel > 0 ? 0.05F : 0.5F;
+        if (this.random.nextFloat() >= destroyChance) {
+            ItemStack empty = getItem().copy();
+            empty.setCount(1);
+            ItemEntity ie = new ItemEntity(level(), baseX, baseY + 0.2, baseZ, empty);
+            ie.setDeltaMovement(0, 0.2, 0);
+            ie.setPickUpDelay(10);
+            level().addFreshEntity(ie);
+        }
+        capturePhase = 0;
+        this.discard();
     }
 
     // ── Hit: Block ────────────────────────────────────────────────────────
@@ -327,10 +555,17 @@ public class PalSphereProjectile extends ThrowableItemProjectile {
             handleSummoning(pResult.getLocation());
             return;
         }
-        super.onHit(pResult);
+        // Dispatch manually instead of super.onHit(): ThrowableProjectile.onHit()
+        // force-discards the projectile right after the hit, which would kill a
+        // capture the instant it begins. onHitEntity fully owns the entity path —
+        // it either discards on a miss or starts a capture that keeps the ball alive.
+        HitResult.Type type = pResult.getType();
+        if (type == HitResult.Type.ENTITY) {
+            this.onHitEntity((EntityHitResult) pResult);
+            return;
+        }
         if (this.level().isClientSide) return;
-
-        if (pResult.getType() == HitResult.Type.BLOCK) {
+        if (type == HitResult.Type.BLOCK) {
             if (followingLevel > 0 && !isHoming) {
                 // Activate homing mode instead of discarding
                 isHoming = true;
